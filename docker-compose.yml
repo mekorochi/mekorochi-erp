@@ -1,0 +1,92 @@
+services:
+  app:
+    build: .
+    container_name: mekorochi-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://mekorochi:${DB_PASSWORD:-mekorochi_secure}@db:5432/mekorochi_erp
+      - AUTH_SECRET=${AUTH_SECRET:-change-this-to-a-secure-random-string}
+      - NEXTAUTH_URL=${APP_URL:-http://localhost:3000}
+      - UPLOAD_DIR=/app/uploads
+      - NODE_ENV=production
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  db:
+    image: postgres:16-alpine
+    container_name: mekorochi-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=mekorochi
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-mekorochi_secure}
+      - POSTGRES_DB=mekorochi_erp
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mekorochi -d mekorochi_erp"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Database is NOT exposed to the host network by default for security
+    # Uncomment below for local development only:
+    # ports:
+    #   - "5432:5432"
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: mekorochi-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+  backup:
+    image: postgres:16-alpine
+    container_name: mekorochi-backup
+    environment:
+      - PGHOST=db
+      - PGUSER=mekorochi
+      - PGPASSWORD=${DB_PASSWORD:-mekorochi_secure}
+      - PGDATABASE=mekorochi_erp
+    volumes:
+      - backups:/backups
+      - uploads:/uploads:ro
+    entrypoint: /bin/sh
+    command: >
+      -c "while true; do
+        TIMESTAMP=$$(date +%Y%m%d_%H%M%S);
+        pg_dump -Fc > /backups/mekorochi_$$TIMESTAMP.dump;
+        tar czf /backups/uploads_$$TIMESTAMP.tar.gz -C / uploads;
+        find /backups -name '*.dump' -mtime +7 -delete;
+        find /backups -name '*.tar.gz' -mtime +7 -delete;
+        echo \"Backup completed: $$TIMESTAMP\";
+        sleep 86400;
+      done"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  uploads:
+  backups:
+  caddy_data:
+  caddy_config:

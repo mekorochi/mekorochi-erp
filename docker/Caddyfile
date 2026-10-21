@@ -1,0 +1,31 @@
+{
+	# Replace with your domain. For local dev, use localhost:
+	# admin off
+}
+
+# For production, replace :80 with your domain:
+# erp.mekorochi.com {
+:80 {
+	reverse_proxy app:3000
+
+	encode gzip
+
+	header {
+		X-Frame-Options DENY
+		X-Content-Type-Options nosniff
+		X-XSS-Protection "1; mode=block"
+		Referrer-Policy strict-origin-when-cross-origin
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+
+	handle /uploads/* {
+		root * /app
+		file_server
+	}
+
+	log {
+		output file /var/log/caddy/access.log
+		format json
+	}
+}
