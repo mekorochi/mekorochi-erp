@@ -5,8 +5,9 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft, MapPin, Gift,
-  CreditCard, Clock, FileText, Truck
+  CreditCard, Clock, FileText, Truck, Printer
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { OrderActions } from "./order-actions";
 import Decimal from "decimal.js";
 
@@ -79,9 +80,17 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             </span>
           </div>
         </div>
-        {!isCancelled && (
-          <OrderActions orderId={id} status={order.status} canEdit={canEdit} canCancel={canCancel} />
-        )}
+        <div className="flex items-center gap-2">
+          <a href={`/api/orders/${id}/pdf`} target="_blank" rel="noopener noreferrer">
+            <Button variant="outline" size="sm">
+              <Printer className="h-4 w-4" />
+              Print
+            </Button>
+          </a>
+          {!isCancelled && (
+            <OrderActions orderId={id} status={order.status} canEdit={canEdit} canCancel={canCancel} />
+          )}
+        </div>
       </div>
 
       {/* Progress Steps */}
