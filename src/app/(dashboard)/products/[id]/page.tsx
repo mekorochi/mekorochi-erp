@@ -12,6 +12,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { ProductStatusToggle } from "./product-status-toggle";
+import { DeleteProductButton } from "./delete-product-button";
 import { BundleItemsEditor } from "./bundle-items-editor";
 
 interface Props {
@@ -29,6 +30,7 @@ const typeLabels: Record<string, string> = {
 export default async function ProductDetailPage({ params }: Props) {
   await requirePermission("products:view");
   const canEdit = await checkPermission("products:edit");
+  const canDelete = await checkPermission("products:delete");
   const { id } = await params;
 
   const product = await prisma.product.findUnique({
@@ -89,6 +91,9 @@ export default async function ProductDetailPage({ params }: Props) {
               </Link>
             </Button>
             <ProductStatusToggle productId={id} isActive={product.isActive} />
+            {canDelete && (
+              <DeleteProductButton productId={id} productName={product.name} />
+            )}
           </div>
         )}
       </PageHeader>
