@@ -79,7 +79,8 @@ export function ProductForm({ initialData, categories, onSubmit }: ProductFormPr
   });
 
   const name = watch("name");
-  const isBundle = watch("isBundle");
+  const selectedType = watch("type");
+  const isBundle = selectedType === "BUNDLE";
 
   const autoGenerateSku = () => {
     if (name && !initialData?.id) {
@@ -93,6 +94,7 @@ export function ProductForm({ initialData, categories, onSubmit }: ProductFormPr
     setLoading(true);
     setError("");
     try {
+      data.isBundle = data.type === "BUNDLE";
       const result = await onSubmit(data as Record<string, unknown>);
       if (result.error) {
         setError(result.error);
@@ -290,26 +292,22 @@ export function ProductForm({ initialData, categories, onSubmit }: ProductFormPr
       {/* Toggles */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex flex-col sm:flex-row gap-6">
-            <div className="flex items-center gap-3">
-              <Switch
-                checked={watch("isActive")}
-                onCheckedChange={(val) => setValue("isActive", val)}
-              />
-              <Label>Active</Label>
-            </div>
-            <div className="flex items-center gap-3">
-              <Switch
-                checked={isBundle}
-                onCheckedChange={(val) => setValue("isBundle", val)}
-              />
-              <Label>Bundle / Gift Set</Label>
-            </div>
+          <div className="flex items-center gap-3">
+            <Switch
+              checked={watch("isActive")}
+              onCheckedChange={(val) => setValue("isActive", val)}
+            />
+            <Label>Active</Label>
           </div>
           {isBundle && (
-            <p className="mt-3 text-sm text-muted-foreground">
-              After creating this product, you can configure bundle items from the product detail page.
-            </p>
+            <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+              <p className="text-sm font-medium text-amber-800">Bundle Product</p>
+              <p className="text-sm text-amber-700 mt-1">
+                {initialData?.id
+                  ? "Manage bundle components from the product detail page."
+                  : "Save this product first, then add component products from the detail page."}
+              </p>
+            </div>
           )}
         </CardContent>
       </Card>

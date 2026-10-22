@@ -12,6 +12,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { ProductStatusToggle } from "./product-status-toggle";
+import { BundleItemsEditor } from "./bundle-items-editor";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -42,12 +43,21 @@ export default async function ProductDetailPage({ params }: Props) {
 
   if (!product) notFound();
 
-  const recentMovements = await prisma.stockMovement.findMany({
-    where: { productId: id },
-    orderBy: { createdAt: "desc" },
-    take: 10,
-    include: { warehouse: true, lot: true },
-  });
+  const [recentMovements, availableProducts] = await Promise.all([
+    prisma.stockMovement.findMany({
+      where: { productId: id },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+      include: { warehouse: true, lot: true },
+    }),
+    product.isBundle
+      ? prisma.product.findMany({
+          where: { isActive: true, type: { not: "BUNDLE" }, id: { not: id } },
+          select: { id: true, name: true, sku: true, type: true },
+          orderBy: { name: "asc" },
+        })
+      : Promise.resolve([]),
+  ]);
 
   const totalStock = product.stockItems.reduce(
     (sum, si) => sum + parseFloat(si.quantity.toString()),
@@ -152,8 +162,20 @@ export default async function ProductDetailPage({ params }: Props) {
             </CardContent>
           </Card>
 
-          {/* Bundle Items */}
-          {product.isBundle && product.bundleItems.length > 0 && (
+          {/* Bundle Items Editor */}
+          {product.isBundle && canEdit && (
+            <BundleItemsEditor
+              productId={id}
+              availableProducts={availableProducts}
+              initialItems={product.bundleItems.map((bi) => ({
+                productId: bi.product.id,
+                name: bi.product.name,
+                sku: bi.product.sku,
+                quantity: parseFloat(bi.quantity.toString()),
+              }))}
+            />
+          )}
+          {product.isBundle && !canEdit && product.bundleItems.length > 0 && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Bundle Contents</CardTitle>
@@ -269,46 +291,48 @@ export default async function ProductDetailPage({ params }: Props) {
             </CardContent>
           </Card>
 
-          {/* Inventory */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Package className="h-4 w-4" />
-                Inventory
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Total Stock</span>
-                <span className="font-semibold tabular-nums">{totalStock.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Reserved</span>
-                <span className="tabular-nums">{totalReserved.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Available</span>
-                <span className="tabular-nums font-medium">{(totalStock - totalReserved).toFixed(2)}</span>
-              </div>
-              {product.reorderLevel && totalStock < parseFloat(product.reorderLevel.toString()) && (
-                <div className="flex items-center gap-2 text-destructive pt-2 border-t">
-                  <AlertTriangle className="h-4 w-4" />
-                  <span className="text-xs font-medium">Below reorder level ({product.reorderLevel.toString()})</span>
+          {/* Inventory — not shown for bundles since they don't carry their own stock */}
+          {!product.isBundle && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Package className="h-4 w-4" />
+                  Inventory
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Total Stock</span>
+                  <span className="font-semibold tabular-nums">{totalStock.toFixed(2)}</span>
                 </div>
-              )}
-              {product.stockItems.length > 0 && (
-                <div className="pt-3 border-t space-y-2">
-                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">By Location</p>
-                  {product.stockItems.map((si) => (
-                    <div key={si.id} className="flex justify-between text-xs">
-                      <span>{si.warehouse.name}</span>
-                      <span className="tabular-nums">{si.quantity.toString()}</span>
-                    </div>
-                  ))}
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Reserved</span>
+                  <span className="tabular-nums">{totalReserved.toFixed(2)}</span>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Available</span>
+                  <span className="tabular-nums font-medium">{(totalStock - totalReserved).toFixed(2)}</span>
+                </div>
+                {product.reorderLevel && totalStock < parseFloat(product.reorderLevel.toString()) && (
+                  <div className="flex items-center gap-2 text-destructive pt-2 border-t">
+                    <AlertTriangle className="h-4 w-4" />
+                    <span className="text-xs font-medium">Below reorder level ({product.reorderLevel.toString()})</span>
+                  </div>
+                )}
+                {product.stockItems.length > 0 && (
+                  <div className="pt-3 border-t space-y-2">
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">By Location</p>
+                    {product.stockItems.map((si) => (
+                      <div key={si.id} className="flex justify-between text-xs">
+                        <span>{si.warehouse.name}</span>
+                        <span className="tabular-nums">{si.quantity.toString()}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Metadata */}
           <Card>

@@ -254,29 +254,34 @@ export async function deleteCategory(id: string) {
 export async function updateBundleItems(productId: string, items: Array<{ productId: string; quantity: number }>) {
   const user = await requirePermission("products:edit");
 
-  await prisma.$transaction(async (tx) => {
-    await tx.bundleItem.deleteMany({ where: { bundleId: productId } });
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.bundleItem.deleteMany({ where: { bundleId: productId } });
 
-    if (items.length > 0) {
-      await tx.bundleItem.createMany({
-        data: items.map((item, idx) => ({
-          bundleId: productId,
-          productId: item.productId,
-          quantity: item.quantity,
-          sortOrder: idx,
-        })),
-      });
-    }
-  });
+      if (items.length > 0) {
+        await tx.bundleItem.createMany({
+          data: items.map((item, idx) => ({
+            bundleId: productId,
+            productId: item.productId,
+            quantity: item.quantity,
+            sortOrder: idx,
+          })),
+        });
+      }
+    });
 
-  await createAuditEvent({
-    userId: user.id,
-    action: "product.bundle_update",
-    entityType: "Product",
-    entityId: productId,
-    after: { items: items.length },
-  });
+    await createAuditEvent({
+      userId: user.id,
+      action: "product.bundle_update",
+      entityType: "Product",
+      entityId: productId,
+      after: { items: items.length },
+    });
 
-  revalidatePath(`/products/${productId}`);
-  return { success: true };
+    revalidatePath(`/products/${productId}`);
+    return { success: true };
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : "Failed to update bundle items";
+    return { error: message };
+  }
 }

@@ -115,7 +115,20 @@ export async function confirmOrder(orderId: string, userId: string) {
     if (!defaultWarehouse) throw new Error("No default warehouse configured");
 
     for (const item of order.items) {
-      await reserveStock(item.productId, defaultWarehouse.id, item.quantity.toString(), tx);
+      const product = await tx.product.findUnique({
+        where: { id: item.productId },
+        include: { bundleItems: true },
+      });
+
+      if (product?.isBundle && product.bundleItems.length > 0) {
+        const orderQty = new Decimal(item.quantity.toString());
+        for (const bi of product.bundleItems) {
+          const componentQty = new Decimal(bi.quantity.toString()).mul(orderQty);
+          await reserveStock(bi.productId, defaultWarehouse.id, componentQty.toFixed(3), tx);
+        }
+      } else {
+        await reserveStock(item.productId, defaultWarehouse.id, item.quantity.toString(), tx);
+      }
     }
 
     return tx.salesOrder.update({
@@ -144,7 +157,19 @@ export async function cancelOrder(orderId: string, userId: string) {
           const unreservedQty = new Decimal(item.quantity.toString())
             .minus(new Decimal(item.fulfilledQty.toString()));
           if (unreservedQty.gt(0)) {
-            await releaseReservation(item.productId, defaultWarehouse.id, unreservedQty.toFixed(3), tx);
+            const product = await tx.product.findUnique({
+              where: { id: item.productId },
+              include: { bundleItems: true },
+            });
+
+            if (product?.isBundle && product.bundleItems.length > 0) {
+              for (const bi of product.bundleItems) {
+                const componentQty = new Decimal(bi.quantity.toString()).mul(unreservedQty);
+                await releaseReservation(bi.productId, defaultWarehouse.id, componentQty.toFixed(3), tx);
+              }
+            } else {
+              await releaseReservation(item.productId, defaultWarehouse.id, unreservedQty.toFixed(3), tx);
+            }
           }
         }
       }
