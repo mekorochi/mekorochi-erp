@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft, MapPin, Gift,
-  CreditCard, Clock, FileText
+  CreditCard, Clock, FileText, Truck
 } from "lucide-react";
 import { OrderActions } from "./order-actions";
 import Decimal from "decimal.js";
