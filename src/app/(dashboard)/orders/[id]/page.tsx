@@ -4,10 +4,10 @@ import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
-  ArrowLeft, CheckCircle, Truck, Package, XCircle, MapPin, Gift,
+  ArrowLeft, MapPin, Gift,
   CreditCard, Clock, FileText
 } from "lucide-react";
-import { confirmOrder, updateOrderStatus, cancelOrder } from "../actions";
+import { OrderActions } from "./order-actions";
 import Decimal from "decimal.js";
 
 const ORDER_STATUS_STYLES: Record<string, string> = {
@@ -80,56 +80,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           </div>
         </div>
         {!isCancelled && (
-          <div className="flex flex-wrap gap-2">
-            {order.status === "DRAFT" && canEdit && (
-              <form action={async () => { "use server"; await confirmOrder(id); }}>
-                <button className="inline-flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
-                  <CheckCircle className="h-4 w-4" />
-                  Confirm Order
-                </button>
-              </form>
-            )}
-            {order.status === "CONFIRMED" && canEdit && (
-              <form action={async () => { "use server"; await updateOrderStatus(id, "PREPARING"); }}>
-                <button className="inline-flex items-center gap-1.5 px-3 py-2 bg-yellow-600 text-white rounded-lg text-sm font-medium hover:bg-yellow-700 transition-colors">
-                  <Package className="h-4 w-4" />
-                  Start Preparing
-                </button>
-              </form>
-            )}
-            {order.status === "PREPARING" && canEdit && (
-              <form action={async () => { "use server"; await updateOrderStatus(id, "PACKED"); }}>
-                <button className="inline-flex items-center gap-1.5 px-3 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 transition-colors">
-                  <Package className="h-4 w-4" />
-                  Mark Packed
-                </button>
-              </form>
-            )}
-            {order.status === "PACKED" && canEdit && (
-              <form action={async () => { "use server"; await updateOrderStatus(id, "SHIPPED"); }}>
-                <button className="inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors">
-                  <Truck className="h-4 w-4" />
-                  Mark Shipped
-                </button>
-              </form>
-            )}
-            {order.status === "SHIPPED" && canEdit && (
-              <form action={async () => { "use server"; await updateOrderStatus(id, "DELIVERED"); }}>
-                <button className="inline-flex items-center gap-1.5 px-3 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors">
-                  <CheckCircle className="h-4 w-4" />
-                  Mark Delivered
-                </button>
-              </form>
-            )}
-            {["DRAFT", "CONFIRMED", "PREPARING", "PACKED"].includes(order.status) && canCancel && (
-              <form action={async () => { "use server"; await cancelOrder(id); }}>
-                <button className="inline-flex items-center gap-1.5 px-3 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors">
-                  <XCircle className="h-4 w-4" />
-                  Cancel
-                </button>
-              </form>
-            )}
-          </div>
+          <OrderActions orderId={id} status={order.status} canEdit={canEdit} canCancel={canCancel} />
         )}
       </div>
 
