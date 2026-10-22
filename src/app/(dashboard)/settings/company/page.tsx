@@ -198,35 +198,47 @@ export default function CompanySettingsPage() {
               onChange={async (e) => {
                 const file = e.target.files?.[0];
                 if (!file) return;
-                if (file.size > 2 * 1024 * 1024) {
-                  alert("File must be under 2MB");
+                if (file.size > 5 * 1024 * 1024) {
+                  alert("File must be under 5MB");
                   return;
                 }
                 setUploading(true);
                 try {
-                  const reader = new FileReader();
-                  reader.onload = async () => {
-                    const dataUrl = reader.result as string;
-                    const res = await fetch("/api/settings/signature", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ url: dataUrl }),
-                    });
-                    const json = await res.json();
-                    if (json.success) {
-                      setSignatureUrl(dataUrl);
-                    } else {
-                      alert(json.error || "Upload failed");
-                    }
-                    setUploading(false);
-                  };
-                  reader.onerror = () => {
-                    alert("Failed to read file");
-                    setUploading(false);
-                  };
-                  reader.readAsDataURL(file);
+                  const img = document.createElement("img");
+                  const objectUrl = URL.createObjectURL(file);
+                  await new Promise<void>((resolve, reject) => {
+                    img.onload = () => resolve();
+                    img.onerror = () => reject(new Error("Failed to load image"));
+                    img.src = objectUrl;
+                  });
+                  const MAX_W = 600;
+                  const MAX_H = 200;
+                  let w = img.naturalWidth;
+                  let h = img.naturalHeight;
+                  if (w > MAX_W) { h = Math.round(h * MAX_W / w); w = MAX_W; }
+                  if (h > MAX_H) { w = Math.round(w * MAX_H / h); h = MAX_H; }
+                  const canvas = document.createElement("canvas");
+                  canvas.width = w;
+                  canvas.height = h;
+                  const ctx = canvas.getContext("2d")!;
+                  ctx.drawImage(img, 0, 0, w, h);
+                  URL.revokeObjectURL(objectUrl);
+                  const dataUrl = canvas.toDataURL("image/png", 0.9);
+
+                  const res = await fetch("/api/settings/signature", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ url: dataUrl }),
+                  });
+                  const json = await res.json();
+                  if (json.success) {
+                    setSignatureUrl(dataUrl);
+                  } else {
+                    alert(json.error || "Upload failed");
+                  }
                 } catch {
                   alert("Upload failed");
+                } finally {
                   setUploading(false);
                 }
               }}

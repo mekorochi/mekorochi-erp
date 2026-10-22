@@ -3,6 +3,10 @@ import { getCurrentUser } from "@/lib/auth";
 import { hasPermission } from "@/lib/auth/permissions";
 import prisma from "@/lib/db/prisma";
 
+export const config = {
+  maxDuration: 30,
+};
+
 export async function POST(request: NextRequest) {
   try {
     const user = await getCurrentUser();
@@ -10,7 +14,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
+    const text = await request.text();
+    if (text.length > 4 * 1024 * 1024) {
+      return NextResponse.json({ error: "Payload too large. Use a smaller image (under 500KB)." }, { status: 413 });
+    }
+
+    const body = JSON.parse(text);
     const url = body.url || null;
 
     await prisma.companySettings.upsert({
@@ -20,7 +29,8 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json({ success: true });
-  } catch {
-    return NextResponse.json({ error: "Failed to save signature" }, { status: 500 });
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : "Failed to save signature";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
