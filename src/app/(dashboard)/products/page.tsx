@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus, Package, Search } from "lucide-react";
+import { Plus, Package, Search, Tags } from "lucide-react";
 import prisma from "@/lib/db/prisma";
 import { requirePermission, checkPermission } from "@/lib/auth";
 import { formatCurrency } from "@/lib/utils";
@@ -85,6 +85,12 @@ export default async function ProductsPage({ searchParams }: Props) {
   return (
     <div>
       <PageHeader title="Products" description={`${total} product${total !== 1 ? "s" : ""}`}>
+        <Button variant="outline" asChild>
+          <Link href="/products/categories">
+            <Tags className="h-4 w-4" />
+            Categories
+          </Link>
+        </Button>
         {canCreate && (
           <Button asChild>
             <Link href="/products/new">
