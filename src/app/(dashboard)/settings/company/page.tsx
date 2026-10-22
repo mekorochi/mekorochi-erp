@@ -187,7 +187,7 @@ export default function CompanySettingsPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Upload a signature image to display on invoices. Recommended: transparent PNG, max 2MB.
+              Upload a signature image to display on invoices. Recommended: transparent PNG, under 500KB.
             </p>
             <input type="hidden" name="signatureUrl" value={signatureUrl || ""} />
             <input
@@ -198,21 +198,35 @@ export default function CompanySettingsPage() {
               onChange={async (e) => {
                 const file = e.target.files?.[0];
                 if (!file) return;
+                if (file.size > 2 * 1024 * 1024) {
+                  alert("File must be under 2MB");
+                  return;
+                }
                 setUploading(true);
                 try {
-                  const fd = new FormData();
-                  fd.append("file", file);
-                  const res = await fetch("/api/upload", { method: "POST", body: fd });
-                  const json = await res.json();
-                  if (json.url) {
-                    setSignatureUrl(json.url);
-                    fetch("/api/settings/signature", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: json.url }) });
-                  } else {
-                    alert(json.error || "Upload failed");
-                  }
+                  const reader = new FileReader();
+                  reader.onload = async () => {
+                    const dataUrl = reader.result as string;
+                    const res = await fetch("/api/settings/signature", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ url: dataUrl }),
+                    });
+                    const json = await res.json();
+                    if (json.success) {
+                      setSignatureUrl(dataUrl);
+                    } else {
+                      alert(json.error || "Upload failed");
+                    }
+                    setUploading(false);
+                  };
+                  reader.onerror = () => {
+                    alert("Failed to read file");
+                    setUploading(false);
+                  };
+                  reader.readAsDataURL(file);
                 } catch {
                   alert("Upload failed");
-                } finally {
                   setUploading(false);
                 }
               }}
@@ -220,7 +234,7 @@ export default function CompanySettingsPage() {
             {signatureUrl ? (
               <div className="flex items-start gap-4">
                 <div className="border rounded-lg p-3 bg-white">
-                  <Image src={signatureUrl} alt="Signature" width={200} height={80} className="object-contain max-h-20" />
+                  <Image src={signatureUrl} alt="Signature" width={200} height={80} className="object-contain max-h-20" unoptimized />
                 </div>
                 <div className="flex flex-col gap-2">
                   <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploading}>

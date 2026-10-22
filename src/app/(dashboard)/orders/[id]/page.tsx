@@ -58,7 +58,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const isCancelled = order.status === "CANCELLED";
   const paidAmount = new Decimal(order.paidAmount?.toString() || "0");
   const totalAmount = new Decimal(order.totalAmount.toString());
-  const outstanding = totalAmount.minus(paidAmount);
+  const outstanding = isCancelled ? new Decimal(0) : totalAmount.minus(paidAmount);
 
   return (
     <div className="space-y-6">
