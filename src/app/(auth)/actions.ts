@@ -121,17 +121,6 @@ export async function setupAction(
       },
     });
 
-    // Seed default warehouses
-    const defaultWarehouses = [
-      { name: "Raw Materials", code: "WH-RAW", type: "RAW_MATERIALS" as const },
-      { name: "Packaging", code: "WH-PKG", type: "PACKAGING" as const },
-      { name: "Finished Goods", code: "WH-FG", type: "FINISHED_GOODS" as const, isDefault: true },
-      { name: "Dispatch", code: "WH-DSP", type: "DISPATCH" as const },
-    ];
-    for (const wh of defaultWarehouses) {
-      await tx.warehouse.create({ data: wh });
-    }
-
     // Seed default expense categories
     const defaultCategories = [
       "Ingredients", "Packaging", "Logistics & Shipping", "Marketing & Ads",

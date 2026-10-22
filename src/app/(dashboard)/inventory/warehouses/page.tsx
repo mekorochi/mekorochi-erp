@@ -4,10 +4,11 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/shared/empty-state";
-import { Warehouse, ArrowLeft } from "lucide-react";
+import { Warehouse, ArrowLeft, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { WarehouseDialog } from "./warehouse-dialog";
+import { DeleteWarehouseButton } from "./delete-warehouse-button";
 
 const TYPE_LABELS: Record<string, string> = {
   RAW_MATERIALS: "Raw Materials",
@@ -82,10 +83,15 @@ export default async function WarehousesPage() {
                   )}
                 </div>
 
-                <div className="mt-4">
-                  <WarehouseDialog
-                    warehouse={{ id: w.id, name: w.name, code: w.code, type: w.type, address: w.address || "", isDefault: w.isDefault }}
-                  />
+                <div className="mt-4 flex gap-2">
+                  <div className="flex-1">
+                    <WarehouseDialog
+                      warehouse={{ id: w.id, name: w.name, code: w.code, type: w.type, address: w.address || "", isDefault: w.isDefault }}
+                    />
+                  </div>
+                  {w._count.stockItems === 0 && w._count.movements === 0 && (
+                    <DeleteWarehouseButton warehouseId={w.id} warehouseName={w.name} />
+                  )}
                 </div>
               </CardContent>
             </Card>

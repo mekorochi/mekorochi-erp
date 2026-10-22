@@ -226,6 +226,36 @@ export async function updateWarehouse(_prev: unknown, formData: FormData) {
   }
 }
 
+export async function deleteWarehouse(warehouseId: string) {
+  const user = await requirePermission("settings:manage");
+
+  try {
+    const warehouse = await prisma.warehouse.findUnique({
+      where: { id: warehouseId },
+      include: { _count: { select: { stockItems: true, movements: true } } },
+    });
+    if (!warehouse) return { error: "Warehouse not found" };
+    if (warehouse._count.stockItems > 0) return { error: "Cannot delete warehouse with stock items. Remove all stock first." };
+    if (warehouse._count.movements > 0) return { error: "Cannot delete warehouse with stock movement history." };
+
+    await prisma.warehouse.delete({ where: { id: warehouseId } });
+
+    await createAuditEvent({
+      userId: user.id,
+      action: "delete_warehouse",
+      entityType: "Warehouse",
+      entityId: warehouseId,
+      before: { name: warehouse.name, code: warehouse.code },
+    });
+
+    revalidatePath("/inventory/warehouses");
+    return { success: true };
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : "Failed to delete warehouse";
+    return { error: message };
+  }
+}
+
 export async function recallLot(lotId: string) {
   const user = await requirePermission("inventory:approve_adjustment");
 
