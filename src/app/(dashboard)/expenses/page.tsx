@@ -150,7 +150,6 @@ export default async function ExpensesPage({
                     <th className="text-left px-4 py-3 font-medium">Category</th>
                     <th className="text-left px-4 py-3 font-medium">Description</th>
                     <th className="text-left px-4 py-3 font-medium">Vendor</th>
-                    <th className="text-left px-4 py-3 font-medium">Paid By</th>
                     <th className="text-left px-4 py-3 font-medium">Date</th>
                     <th className="text-right px-4 py-3 font-medium">Amount</th>
                     <th className="text-left px-4 py-3 font-medium">Status</th>
@@ -171,7 +170,6 @@ export default async function ExpensesPage({
                       </td>
                       <td className="px-4 py-3 max-w-[200px] truncate">{expense.description}</td>
                       <td className="px-4 py-3 text-muted-foreground">{expense.vendor || "—"}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{expense.paidBy || "—"}</td>
                       <td className="px-4 py-3 text-muted-foreground">{formatDate(expense.expenseDate)}</td>
                       <td className="px-4 py-3 text-right font-semibold">{formatCurrency(expense.totalAmount)}</td>
                       <td className="px-4 py-3">
