@@ -62,6 +62,58 @@ export async function createExpenseAction(_prev: unknown, formData: FormData) {
   }
 }
 
+export async function updateExpenseAction(expenseId: string, data: Record<string, unknown>) {
+  try {
+    const user = await requirePermission("expenses:edit");
+    const parsed = expenseSchema.parse(data);
+
+    const existing = await prisma.expense.findUnique({ where: { id: expenseId } });
+    if (!existing) return { error: "Expense not found" };
+    if (existing.status !== "PENDING") return { error: "Only pending expenses can be edited" };
+
+    const amount = new Decimal(parsed.amount);
+    const taxAmount = new Decimal(parsed.taxAmount || 0);
+    const totalAmount = amount.plus(taxAmount);
+
+    await prisma.expense.update({
+      where: { id: expenseId },
+      data: {
+        categoryId: parsed.categoryId,
+        amount: amount.toFixed(2),
+        taxAmount: taxAmount.toFixed(2),
+        totalAmount: totalAmount.toFixed(2),
+        description: parsed.description,
+        vendor: parsed.vendor || null,
+        department: parsed.department || null,
+        project: parsed.project || null,
+        paymentMethod: parsed.paymentMethod,
+        paymentRef: parsed.paymentRef || null,
+        paidBy: parsed.paidBy || null,
+        expenseDate: parsed.expenseDate ? new Date(parsed.expenseDate) : new Date(),
+        gstApplicable: parsed.gstApplicable,
+        gstRate: parsed.gstRate ? new Decimal(parsed.gstRate).toFixed(2) : null,
+        notes: parsed.notes || null,
+        isRecurring: parsed.isRecurring,
+        recurringPeriod: parsed.recurringPeriod || null,
+      },
+    });
+
+    await createAuditEvent({
+      userId: user.id,
+      action: "UPDATE",
+      entityType: "Expense",
+      entityId: expenseId,
+      after: { amount: totalAmount.toFixed(2), category: parsed.categoryId },
+    });
+
+    revalidatePath("/expenses");
+    revalidatePath(`/expenses/${expenseId}`);
+    return { success: true, expenseId };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Failed to update expense" };
+  }
+}
+
 export async function approveExpenseAction(expenseId: string) {
   try {
     const user = await requirePermission("expenses:approve");

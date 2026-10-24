@@ -2,34 +2,35 @@
 
 import { useState, useActionState } from "react";
 import { useRouter } from "next/navigation";
-import { createExpenseAction } from "@/app/(dashboard)/expenses/actions";
 
 interface ExpenseFormProps {
   categories: Array<{ id: string; name: string }>;
-  initialData?: any;
+  initialData?: Record<string, unknown>;
+  onSubmit: (data: Record<string, unknown>) => Promise<{ success?: boolean; error?: string; expenseId?: string }>;
+  submitLabel?: string;
 }
 
-export default function ExpenseForm({ categories, initialData }: ExpenseFormProps) {
+export default function ExpenseForm({ categories, initialData, onSubmit, submitLabel = "Save Expense" }: ExpenseFormProps) {
   const router = useRouter();
-  const [categoryId, setCategoryId] = useState(initialData?.categoryId || "");
-  const [amount, setAmount] = useState(initialData?.amount || "");
-  const [taxAmount, setTaxAmount] = useState(initialData?.taxAmount || "0");
-  const [description, setDescription] = useState(initialData?.description || "");
-  const [vendor, setVendor] = useState(initialData?.vendor || "");
-  const [department, setDepartment] = useState(initialData?.department || "");
-  const [project, setProject] = useState(initialData?.project || "");
-  const [paymentMethod, setPaymentMethod] = useState(initialData?.paymentMethod || "CASH");
-  const [paymentRef, setPaymentRef] = useState(initialData?.paymentRef || "");
-  const [paidBy, setPaidBy] = useState(initialData?.paidBy || "");
+  const [categoryId, setCategoryId] = useState((initialData?.categoryId as string) || "");
+  const [amount, setAmount] = useState(initialData?.amount?.toString() || "");
+  const [taxAmount, setTaxAmount] = useState(initialData?.taxAmount?.toString() || "0");
+  const [description, setDescription] = useState((initialData?.description as string) || "");
+  const [vendor, setVendor] = useState((initialData?.vendor as string) || "");
+  const [department, setDepartment] = useState((initialData?.department as string) || "");
+  const [project, setProject] = useState((initialData?.project as string) || "");
+  const [paymentMethod, setPaymentMethod] = useState((initialData?.paymentMethod as string) || "CASH");
+  const [paymentRef, setPaymentRef] = useState((initialData?.paymentRef as string) || "");
+  const [paidBy, setPaidBy] = useState((initialData?.paidBy as string) || "");
   const [paidByCustom, setPaidByCustom] = useState("");
   const [expenseDate, setExpenseDate] = useState(
-    initialData?.expenseDate || new Date().toISOString().split("T")[0]
+    (initialData?.expenseDate as string) || new Date().toISOString().split("T")[0]
   );
-  const [gstApplicable, setGstApplicable] = useState(initialData?.gstApplicable || false);
-  const [gstRate, setGstRate] = useState(initialData?.gstRate || "");
-  const [isRecurring, setIsRecurring] = useState(initialData?.isRecurring || false);
-  const [recurringPeriod, setRecurringPeriod] = useState(initialData?.recurringPeriod || "");
-  const [notes, setNotes] = useState(initialData?.notes || "");
+  const [gstApplicable, setGstApplicable] = useState((initialData?.gstApplicable as boolean) || false);
+  const [gstRate, setGstRate] = useState(initialData?.gstRate?.toString() || "");
+  const [isRecurring, setIsRecurring] = useState((initialData?.isRecurring as boolean) || false);
+  const [recurringPeriod, setRecurringPeriod] = useState((initialData?.recurringPeriod as string) || "");
+  const [notes, setNotes] = useState((initialData?.notes as string) || "");
 
   const handleSubmit = async (_prev: unknown, _formData: FormData) => {
     const data = {
@@ -51,9 +52,7 @@ export default function ExpenseForm({ categories, initialData }: ExpenseFormProp
       recurringPeriod: isRecurring ? recurringPeriod : undefined,
     };
 
-    const fd = new FormData();
-    fd.set("data", JSON.stringify(data));
-    const result = await createExpenseAction(null, fd);
+    const result = await onSubmit(data);
     if (result.success && result.expenseId) {
       router.push(`/expenses/${result.expenseId}`);
     }
@@ -61,6 +60,9 @@ export default function ExpenseForm({ categories, initialData }: ExpenseFormProp
   };
 
   const [state, formAction, isPending] = useActionState(handleSubmit, null);
+
+  const knownPaidByValues = ["", "Company Account", "Cash", "Meet", "Komal", "Ronit", "__other__"];
+  const isCustomPaidBy = paidBy && !knownPaidByValues.includes(paidBy);
 
   return (
     <form action={formAction} className="space-y-6 max-w-3xl">
@@ -110,7 +112,7 @@ export default function ExpenseForm({ categories, initialData }: ExpenseFormProp
           <div className="sm:col-span-2">
             <label className="block text-sm font-medium mb-1">Expense Done By</label>
             <div className="flex gap-3">
-              <select value={paidBy} onChange={(e) => setPaidBy(e.target.value)} className="w-full rounded-lg border bg-background px-3 py-2 text-sm">
+              <select value={isCustomPaidBy ? "__other__" : paidBy} onChange={(e) => { setPaidBy(e.target.value); if (e.target.value !== "__other__") setPaidByCustom(""); }} className="w-full rounded-lg border bg-background px-3 py-2 text-sm">
                 <option value="">Select who paid</option>
                 <option value="Company Account">Company Account</option>
                 <option value="Cash">Cash (Personal)</option>
@@ -119,8 +121,8 @@ export default function ExpenseForm({ categories, initialData }: ExpenseFormProp
                 <option value="Ronit">Ronit</option>
                 <option value="__other__">Other...</option>
               </select>
-              {paidBy === "__other__" && (
-                <input type="text" value={paidByCustom} onChange={(e) => setPaidByCustom(e.target.value)} placeholder="Enter name" className="w-full rounded-lg border bg-background px-3 py-2 text-sm" />
+              {(paidBy === "__other__" || isCustomPaidBy) && (
+                <input type="text" value={isCustomPaidBy ? paidBy : paidByCustom} onChange={(e) => isCustomPaidBy ? setPaidBy(e.target.value) : setPaidByCustom(e.target.value)} placeholder="Enter name" className="w-full rounded-lg border bg-background px-3 py-2 text-sm" />
               )}
             </div>
           </div>
@@ -194,11 +196,6 @@ export default function ExpenseForm({ categories, initialData }: ExpenseFormProp
         <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className="w-full rounded-lg border bg-background px-3 py-2 text-sm" placeholder="Additional notes..." />
       </div>
 
-      {/* Receipt upload placeholder */}
-      <div className="rounded-xl border border-dashed bg-card p-6 text-center">
-        <p className="text-sm text-muted-foreground">📎 Receipt upload coming soon — attach receipts from phone camera or file</p>
-      </div>
-
       <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
         <button type="button" onClick={() => router.back()} className="rounded-lg border px-6 py-2.5 text-sm font-medium hover:bg-muted">
           Cancel
@@ -208,7 +205,7 @@ export default function ExpenseForm({ categories, initialData }: ExpenseFormProp
           disabled={isPending || !categoryId || !amount || !description}
           className="rounded-lg bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
         >
-          {isPending ? "Saving..." : "Save Expense"}
+          {isPending ? "Saving..." : submitLabel}
         </button>
       </div>
     </form>

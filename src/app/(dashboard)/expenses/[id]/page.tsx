@@ -3,6 +3,8 @@ import prisma from "@/lib/db/prisma";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { Edit } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import ExpenseApproval from "./expense-approval";
 
 const statusConfig: Record<string, { label: string; className: string }> = {
@@ -27,6 +29,7 @@ export default async function ExpenseDetailPage({ params }: { params: Promise<{ 
   if (!expense) notFound();
 
   const canApprove = await checkPermission("expenses:approve");
+  const canEdit = await checkPermission("expenses:edit");
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -43,9 +46,19 @@ export default async function ExpenseDetailPage({ params }: { params: Promise<{ 
             {expense.category.name} • {formatDate(expense.expenseDate)}
           </p>
         </div>
-        {canApprove && expense.status === "PENDING" && (
-          <ExpenseApproval expenseId={expense.id} />
-        )}
+        <div className="flex gap-2">
+          {canEdit && expense.status === "PENDING" && (
+            <Link href={`/expenses/${expense.id}/edit`}>
+              <Button variant="outline" size="sm">
+                <Edit className="h-4 w-4" />
+                Edit
+              </Button>
+            </Link>
+          )}
+          {canApprove && expense.status === "PENDING" && (
+            <ExpenseApproval expenseId={expense.id} />
+          )}
+        </div>
       </div>
 
       {/* Amount */}

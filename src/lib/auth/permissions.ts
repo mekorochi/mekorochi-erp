@@ -12,7 +12,7 @@ export type Permission =
   | "quotations:view" | "quotations:create" | "quotations:edit" | "quotations:approve"
   | "invoices:view" | "invoices:create" | "invoices:void" | "invoices:export"
   | "payments:view" | "payments:create" | "payments:refund"
-  | "expenses:view" | "expenses:create" | "expenses:approve" | "expenses:export"
+  | "expenses:view" | "expenses:create" | "expenses:edit" | "expenses:approve" | "expenses:export"
   | "reports:view" | "reports:export" | "reports:financial"
   | "team:view" | "team:manage" | "team:roles"
   | "settings:view" | "settings:manage"
@@ -33,7 +33,7 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     "quotations:view", "quotations:create", "quotations:edit", "quotations:approve",
     "invoices:view", "invoices:create", "invoices:void", "invoices:export",
     "payments:view", "payments:create", "payments:refund",
-    "expenses:view", "expenses:create", "expenses:approve", "expenses:export",
+    "expenses:view", "expenses:create", "expenses:edit", "expenses:approve", "expenses:export",
     "reports:view", "reports:export", "reports:financial",
     "team:view", "team:manage", "team:roles",
     "settings:view", "settings:manage",
@@ -53,7 +53,7 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     "quotations:view", "quotations:create", "quotations:edit", "quotations:approve",
     "invoices:view", "invoices:create", "invoices:void", "invoices:export",
     "payments:view", "payments:create", "payments:refund",
-    "expenses:view", "expenses:create", "expenses:approve", "expenses:export",
+    "expenses:view", "expenses:create", "expenses:edit", "expenses:approve", "expenses:export",
     "reports:view", "reports:export", "reports:financial",
     "team:view", "team:manage",
     "settings:view", "settings:manage",
@@ -96,7 +96,7 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     "orders:view",
     "invoices:view", "invoices:create", "invoices:void", "invoices:export",
     "payments:view", "payments:create", "payments:refund",
-    "expenses:view", "expenses:create", "expenses:approve", "expenses:export",
+    "expenses:view", "expenses:create", "expenses:edit", "expenses:approve", "expenses:export",
     "reports:view", "reports:export", "reports:financial",
     "purchasing:view",
     "audit:view",
