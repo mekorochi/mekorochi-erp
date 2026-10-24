@@ -191,7 +191,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     // ══════ ITEMS TABLE ══════
     const hasAnyDiscount = quotation.items.some(i => new Decimal(i.discount.toString()).gt(0));
     const heads = hasAnyDiscount
-      ? [["#", "Product", "SKU", "Wt. (Approx.)", "Qty", "MRP", "Discount", "Rate", "Tax %", "Amount"]]
+      ? [["#", "Product", "SKU", "Wt. (Approx.)", "Qty", "Rate", "Disc.", "Tax %", "Amount"]]
       : [["#", "Product", "SKU", "Wt. (Approx.)", "Qty", "Rate", "Tax %", "Amount"]];
 
     const rows: (string | { content: string; styles?: Record<string, unknown> })[][] = [];
@@ -203,8 +203,6 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       const qty = new Decimal(item.quantity.toString());
       const disc = new Decimal(item.discount.toString());
       const unitPrice = new Decimal(item.unitPrice.toString());
-      const lineTotal = qty.mul(unitPrice);
-      const effectiveRate = disc.gt(0) ? lineTotal.minus(disc).div(qty).toDecimalPlaces(2) : unitPrice;
       const isBundle = item.product.isBundle && item.product.bundleItems.length > 0;
       const itemWeight = fmtWeight(item.product);
       if (item.product.weight) {
@@ -217,14 +215,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         item.product.sku,
         itemWeight ? `~${itemWeight}` : "-",
         qty.toFixed(2) + " " + getUnitLabel(item.product.unitOfMeasure),
+        fmt(unitPrice),
       ];
 
       if (hasAnyDiscount) {
-        row.push(fmt(unitPrice));
         row.push(disc.gt(0) ? fmt(disc) : "-");
-        row.push(fmt(effectiveRate));
-      } else {
-        row.push(fmt(unitPrice));
       }
 
       row.push(new Decimal(item.taxRate.toString()).toFixed(1) + "%");
@@ -248,7 +243,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
             { content: `${bi.quantity.toString()} x ${qty.toFixed(0)} = ${compQty.toFixed(0)}`, styles: gray },
           ];
           if (hasAnyDiscount) {
-            bundleRow.push("", "", "", "", "");
+            bundleRow.push("", "", "", "");
           } else {
             bundleRow.push("", "", "");
           }
@@ -264,11 +259,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
           2: { cellWidth: 18, halign: "center" },
           3: { cellWidth: 20, halign: "center" },
           4: { cellWidth: 18, halign: "right" },
-          5: { cellWidth: 18, halign: "right" },
-          6: { cellWidth: 16, halign: "right" },
-          7: { cellWidth: 18, halign: "right" },
-          8: { cellWidth: 12, halign: "center" },
-          9: { cellWidth: 22, halign: "right" },
+          5: { cellWidth: 20, halign: "right" },
+          6: { cellWidth: 18, halign: "right" },
+          7: { cellWidth: 12, halign: "center" },
+          8: { cellWidth: 22, halign: "right" },
         }
       : {
           0: { cellWidth: 7, halign: "center" },
