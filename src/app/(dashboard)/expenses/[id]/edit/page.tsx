@@ -16,7 +16,8 @@ export default async function EditExpensePage({ params }: { params: Promise<{ id
   });
 
   if (!expense) notFound();
-  if (expense.status !== "PENDING") redirect(`/expenses/${id}`);
+  // TEMPORARY: allow editing all statuses
+  // if (expense.status !== "PENDING") redirect(`/expenses/${id}`);
 
   const categories = await prisma.expenseCategory.findMany({
     where: { isActive: true },

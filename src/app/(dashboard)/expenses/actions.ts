@@ -69,7 +69,8 @@ export async function updateExpenseAction(expenseId: string, data: Record<string
 
     const existing = await prisma.expense.findUnique({ where: { id: expenseId } });
     if (!existing) return { error: "Expense not found" };
-    if (existing.status !== "PENDING") return { error: "Only pending expenses can be edited" };
+    // TEMPORARY: allow editing all statuses
+    // if (existing.status !== "PENDING") return { error: "Only pending expenses can be edited" };
 
     const amount = new Decimal(parsed.amount);
     const taxAmount = new Decimal(parsed.taxAmount || 0);
