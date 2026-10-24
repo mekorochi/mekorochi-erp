@@ -137,11 +137,13 @@ export default function QuotationForm({
   }
 
   const subtotal = items.reduce((sum, item) => {
-    return sum.plus(new Decimal(item.quantity || 0).mul(new Decimal(item.unitPrice || 0)).minus(new Decimal(item.discount || 0)));
+    const netPrice = new Decimal(item.unitPrice || 0).minus(new Decimal(item.discount || 0));
+    return sum.plus(new Decimal(item.quantity || 0).mul(netPrice));
   }, new Decimal(0));
 
   const totalTax = items.reduce((sum, item) => {
-    const lineTotal = new Decimal(item.quantity || 0).mul(new Decimal(item.unitPrice || 0)).minus(new Decimal(item.discount || 0));
+    const netPrice = new Decimal(item.unitPrice || 0).minus(new Decimal(item.discount || 0));
+    const lineTotal = new Decimal(item.quantity || 0).mul(netPrice);
     return sum.plus(lineTotal.mul(new Decimal(item.taxRate || 0)).div(100));
   }, new Decimal(0));
 
@@ -341,8 +343,7 @@ export default function QuotationForm({
                   Line Total:{" "}
                   {formatCurrency(
                     new Decimal(item.quantity || 0)
-                      .mul(new Decimal(item.unitPrice || 0))
-                      .minus(new Decimal(item.discount || 0))
+                      .mul(new Decimal(item.unitPrice || 0).minus(new Decimal(item.discount || 0)))
                       .mul(new Decimal(1).plus(new Decimal(item.taxRate || 0).div(100)))
                       .toNumber()
                   )}

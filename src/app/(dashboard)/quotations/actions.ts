@@ -53,8 +53,8 @@ export async function createQuotation(formData: {
     const price = new Decimal(item.unitPrice);
     const disc = new Decimal(item.discount || 0);
     const taxRate = new Decimal(item.taxRate || 0);
-    const lineTotal = qty.mul(price);
-    const taxableAmount = lineTotal.minus(disc);
+    const netPrice = price.minus(disc);
+    const taxableAmount = qty.mul(netPrice);
     const taxAmount = taxableAmount.mul(taxRate).div(100).toDecimalPlaces(2);
     const total = taxableAmount.plus(taxAmount);
     subtotal = subtotal.plus(taxableAmount);
@@ -172,8 +172,8 @@ export async function updateQuotation(quoteId: string, formData: {
     const price = new Decimal(item.unitPrice);
     const disc = new Decimal(item.discount || 0);
     const taxRate = new Decimal(item.taxRate || 0);
-    const lineTotal = qty.mul(price);
-    const taxableAmount = lineTotal.minus(disc);
+    const netPrice = price.minus(disc);
+    const taxableAmount = qty.mul(netPrice);
     const taxAmount = taxableAmount.mul(taxRate).div(100).toDecimalPlaces(2);
     const total = taxableAmount.plus(taxAmount);
     subtotal = subtotal.plus(taxableAmount);
