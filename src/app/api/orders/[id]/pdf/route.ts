@@ -203,7 +203,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
           const compQty = new Decimal(bi.quantity.toString()).mul(qty);
           rows.push([
             "",
-            { content: `  └ ${bi.product.name}`, styles: { textColor: [100, 100, 100] as [number, number, number], fontStyle: "italic" as const } },
+            { content: `- ${bi.product.name}`, styles: { textColor: [100, 100, 100] as [number, number, number], fontStyle: "italic" as const, overflow: "linebreak" as const } },
             { content: bi.product.sku, styles: { textColor: [100, 100, 100] as [number, number, number] } },
             { content: `${bi.quantity.toString()} x ${qty.toFixed(0)} = ${compQty.toFixed(2)}`, styles: { textColor: [100, 100, 100] as [number, number, number] } },
             "",
