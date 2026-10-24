@@ -15,16 +15,17 @@ const statusConfig: Record<string, { label: string; className: string }> = {
 export default async function ExpensesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; status?: string; categoryId?: string; search?: string }>;
+  searchParams: Promise<{ page?: string; status?: string; categoryId?: string; search?: string; paidBy?: string }>;
 }) {
-  const user = await requirePermission("expenses:view");
+  await requirePermission("expenses:view");
   const params = await searchParams;
   const page = parseInt(params.page || "1");
-  const perPage = 20;
+  const perPage = 50;
 
   const where: Record<string, unknown> = {};
   if (params.status) where.status = params.status;
   if (params.categoryId) where.categoryId = params.categoryId;
+  if (params.paidBy) where.paidBy = params.paidBy;
   if (params.search) {
     where.OR = [
       { expenseNumber: { contains: params.search, mode: "insensitive" } },
@@ -33,7 +34,7 @@ export default async function ExpensesPage({
     ];
   }
 
-  const [expenses, total, categories, monthTotal, pendingCount] = await Promise.all([
+  const [expenses, total, categories, monthTotal, pendingCount, paidByValues] = await Promise.all([
     prisma.expense.findMany({
       where: where as any,
       include: { category: true },
@@ -51,7 +52,14 @@ export default async function ExpensesPage({
       _sum: { totalAmount: true },
     }),
     prisma.expense.count({ where: { status: "PENDING" } }),
+    prisma.expense.findMany({
+      where: { paidBy: { not: null } },
+      select: { paidBy: true },
+      distinct: ["paidBy"],
+      orderBy: { paidBy: "asc" },
+    }),
   ]);
+  const distinctPaidBy = paidByValues.map((v) => v.paidBy).filter(Boolean) as string[];
 
   const totalPages = Math.ceil(total / perPage);
 
@@ -102,6 +110,12 @@ export default async function ExpensesPage({
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
         </select>
+        <select name="paidBy" defaultValue={params.paidBy || ""} className="rounded-lg border bg-card px-3 py-2 text-sm">
+          <option value="">All - Paid By</option>
+          {distinctPaidBy.map((name) => (
+            <option key={name} value={name}>{name}</option>
+          ))}
+        </select>
         <select name="status" defaultValue={params.status || ""} className="rounded-lg border bg-card px-3 py-2 text-sm">
           <option value="">All Status</option>
           <option value="PENDING">Pending</option>
@@ -136,6 +150,7 @@ export default async function ExpensesPage({
                     <th className="text-left px-4 py-3 font-medium">Category</th>
                     <th className="text-left px-4 py-3 font-medium">Description</th>
                     <th className="text-left px-4 py-3 font-medium">Vendor</th>
+                    <th className="text-left px-4 py-3 font-medium">Paid By</th>
                     <th className="text-left px-4 py-3 font-medium">Date</th>
                     <th className="text-right px-4 py-3 font-medium">Amount</th>
                     <th className="text-left px-4 py-3 font-medium">Status</th>
@@ -156,6 +171,7 @@ export default async function ExpensesPage({
                       </td>
                       <td className="px-4 py-3 max-w-[200px] truncate">{expense.description}</td>
                       <td className="px-4 py-3 text-muted-foreground">{expense.vendor || "—"}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{expense.paidBy || "—"}</td>
                       <td className="px-4 py-3 text-muted-foreground">{formatDate(expense.expenseDate)}</td>
                       <td className="px-4 py-3 text-right font-semibold">{formatCurrency(expense.totalAmount)}</td>
                       <td className="px-4 py-3">
@@ -187,7 +203,7 @@ export default async function ExpensesPage({
                   <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs">{expense.category.name}</span>
                   <span className="font-semibold">{formatCurrency(expense.totalAmount)}</span>
                 </div>
-                <p className="text-xs text-muted-foreground mt-2">{formatDate(expense.expenseDate)}{expense.vendor ? ` • ${expense.vendor}` : ""}</p>
+                <p className="text-xs text-muted-foreground mt-2">{formatDate(expense.expenseDate)}{expense.paidBy ? ` • ${expense.paidBy}` : ""}{expense.vendor ? ` • ${expense.vendor}` : ""}</p>
               </Link>
             ))}
           </div>
@@ -197,8 +213,8 @@ export default async function ExpensesPage({
             <div className="flex items-center justify-between">
               <p className="text-sm text-muted-foreground">Showing {(page - 1) * perPage + 1}–{Math.min(page * perPage, total)} of {total}</p>
               <div className="flex gap-2">
-                {page > 1 && <Link href={`/expenses?page=${page - 1}`} className="rounded-lg border px-3 py-1.5 text-sm hover:bg-muted">Previous</Link>}
-                {page < totalPages && <Link href={`/expenses?page=${page + 1}`} className="rounded-lg border px-3 py-1.5 text-sm hover:bg-muted">Next</Link>}
+                {page > 1 && <Link href={`/expenses?${new URLSearchParams({ ...params, page: String(page - 1) }).toString()}`} className="rounded-lg border px-3 py-1.5 text-sm hover:bg-muted">Previous</Link>}
+                {page < totalPages && <Link href={`/expenses?${new URLSearchParams({ ...params, page: String(page + 1) }).toString()}`} className="rounded-lg border px-3 py-1.5 text-sm hover:bg-muted">Next</Link>}
               </div>
             </div>
           )}
