@@ -210,9 +210,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         totalWeight = totalWeight.plus(new Decimal(item.product.weight.toString()).mul(qty));
       }
 
+      const prodName = item.product.name.replace(/^%\s*/, "");
       const row: (string | { content: string; styles?: Record<string, unknown> })[] = [
         String(slNo),
-        item.product.name + (isBundle ? " (Bundle)" : ""),
+        prodName + (isBundle ? " (Bundle)" : ""),
         item.product.sku,
         itemWeight ? `~${itemWeight}` : "-",
         qty.toFixed(2) + " " + getUnitLabel(item.product.unitOfMeasure),
@@ -241,7 +242,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
           const grayItalic = { textColor: [100, 100, 100] as [number, number, number], fontStyle: "italic" as const };
           const bundleRow: (string | { content: string; styles?: Record<string, unknown> })[] = [
             "",
-            { content: `  └ ${bi.product.name}`, styles: grayItalic },
+            { content: `  └ ${bi.product.name.replace(/^%\s*/, "")}`, styles: grayItalic },
             { content: bi.product.sku, styles: gray },
             { content: compWeight ? `~${compWeight}` : "-", styles: gray },
             { content: `${bi.quantity.toString()} x ${qty.toFixed(0)} = ${compQty.toFixed(0)}`, styles: gray },
@@ -259,7 +260,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     const colStyles: Record<number, Record<string, unknown>> = hasAnyDiscount
       ? {
           0: { cellWidth: 7, halign: "center" },
-          1: { cellWidth: "auto" },
+          1: { cellWidth: "auto", overflow: "linebreak" },
           2: { cellWidth: 18, halign: "center" },
           3: { cellWidth: 20, halign: "center" },
           4: { cellWidth: 18, halign: "right" },
@@ -271,7 +272,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         }
       : {
           0: { cellWidth: 7, halign: "center" },
-          1: { cellWidth: "auto" },
+          1: { cellWidth: "auto", overflow: "linebreak" },
           2: { cellWidth: 20, halign: "center" },
           3: { cellWidth: 22, halign: "center" },
           4: { cellWidth: 20, halign: "right" },
