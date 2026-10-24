@@ -189,7 +189,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     y += 0.5;
 
     // ══════ ITEMS TABLE ══════
-    const heads = [["#", "Product", "SKU", "Wt. (Approx.)", "Qty", "Rate", "Tax %", "Amount"]];
+    const hasAnyDiscount = quotation.items.some(i => new Decimal(i.discount.toString()).gt(0));
+    const heads = hasAnyDiscount
+      ? [["#", "Product", "SKU", "Wt. (Approx.)", "Qty", "MRP", "Discount", "Rate", "Tax %", "Amount"]]
+      : [["#", "Product", "SKU", "Wt. (Approx.)", "Qty", "Rate", "Tax %", "Amount"]];
 
     const rows: (string | { content: string; styles?: Record<string, unknown> })[][] = [];
     let slNo = 0;
@@ -198,22 +201,35 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     for (const item of quotation.items) {
       slNo++;
       const qty = new Decimal(item.quantity.toString());
+      const disc = new Decimal(item.discount.toString());
+      const unitPrice = new Decimal(item.unitPrice.toString());
+      const lineTotal = qty.mul(unitPrice);
+      const effectiveRate = disc.gt(0) ? lineTotal.minus(disc).div(qty).toDecimalPlaces(2) : unitPrice;
       const isBundle = item.product.isBundle && item.product.bundleItems.length > 0;
       const itemWeight = fmtWeight(item.product);
       if (item.product.weight) {
         totalWeight = totalWeight.plus(new Decimal(item.product.weight.toString()).mul(qty));
       }
 
-      rows.push([
+      const row: (string | { content: string; styles?: Record<string, unknown> })[] = [
         String(slNo),
         item.product.name + (isBundle ? " (Bundle)" : ""),
         item.product.sku,
         itemWeight ? `~${itemWeight}` : "-",
         qty.toFixed(2) + " " + getUnitLabel(item.product.unitOfMeasure),
-        fmt(item.unitPrice),
-        new Decimal(item.taxRate.toString()).toFixed(1) + "%",
-        fmt(item.totalAmount),
-      ]);
+      ];
+
+      if (hasAnyDiscount) {
+        row.push(fmt(unitPrice));
+        row.push(disc.gt(0) ? fmt(disc) : "-");
+        row.push(fmt(effectiveRate));
+      } else {
+        row.push(fmt(unitPrice));
+      }
+
+      row.push(new Decimal(item.taxRate.toString()).toFixed(1) + "%");
+      row.push(fmt(item.totalAmount));
+      rows.push(row);
 
       if (isBundle) {
         for (const bi of item.product.bundleItems) {
@@ -222,19 +238,48 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
           if (bi.product.weight) {
             totalWeight = totalWeight.plus(new Decimal(bi.product.weight.toString()).mul(compQty));
           }
-          rows.push([
+          const gray = { textColor: [100, 100, 100] as [number, number, number] };
+          const grayItalic = { textColor: [100, 100, 100] as [number, number, number], fontStyle: "italic" as const };
+          const bundleRow: (string | { content: string; styles?: Record<string, unknown> })[] = [
             "",
-            { content: `  └ ${bi.product.name}`, styles: { textColor: [100, 100, 100] as [number, number, number], fontStyle: "italic" as const } },
-            { content: bi.product.sku, styles: { textColor: [100, 100, 100] as [number, number, number] } },
-            { content: compWeight ? `~${compWeight}` : "-", styles: { textColor: [100, 100, 100] as [number, number, number] } },
-            { content: `${bi.quantity.toString()} x ${qty.toFixed(0)} = ${compQty.toFixed(0)}`, styles: { textColor: [100, 100, 100] as [number, number, number] } },
-            "",
-            "",
-            "",
-          ]);
+            { content: `  └ ${bi.product.name}`, styles: grayItalic },
+            { content: bi.product.sku, styles: gray },
+            { content: compWeight ? `~${compWeight}` : "-", styles: gray },
+            { content: `${bi.quantity.toString()} x ${qty.toFixed(0)} = ${compQty.toFixed(0)}`, styles: gray },
+          ];
+          if (hasAnyDiscount) {
+            bundleRow.push("", "", "", "", "");
+          } else {
+            bundleRow.push("", "", "");
+          }
+          rows.push(bundleRow);
         }
       }
     }
+
+    const colStyles: Record<number, Record<string, unknown>> = hasAnyDiscount
+      ? {
+          0: { cellWidth: 7, halign: "center" },
+          1: { cellWidth: "auto" },
+          2: { cellWidth: 18, halign: "center" },
+          3: { cellWidth: 20, halign: "center" },
+          4: { cellWidth: 18, halign: "right" },
+          5: { cellWidth: 18, halign: "right" },
+          6: { cellWidth: 16, halign: "right" },
+          7: { cellWidth: 18, halign: "right" },
+          8: { cellWidth: 12, halign: "center" },
+          9: { cellWidth: 22, halign: "right" },
+        }
+      : {
+          0: { cellWidth: 7, halign: "center" },
+          1: { cellWidth: "auto" },
+          2: { cellWidth: 20, halign: "center" },
+          3: { cellWidth: 22, halign: "center" },
+          4: { cellWidth: 20, halign: "right" },
+          5: { cellWidth: 20, halign: "right" },
+          6: { cellWidth: 14, halign: "center" },
+          7: { cellWidth: 22, halign: "right" },
+        };
 
     autoTable(doc, {
       startY: y,
@@ -246,16 +291,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       headStyles: { fillColor: [245, 245, 220], textColor: BK, fontStyle: "bold", fontSize: 6.5, halign: "center", cellPadding: 2 },
       bodyStyles: { fillColor: [255, 255, 255] },
       alternateRowStyles: { fillColor: [255, 255, 255] },
-      columnStyles: {
-        0: { cellWidth: 7, halign: "center" },
-        1: { cellWidth: "auto" },
-        2: { cellWidth: 20, halign: "center" },
-        3: { cellWidth: 22, halign: "center" },
-        4: { cellWidth: 20, halign: "right" },
-        5: { cellWidth: 20, halign: "right" },
-        6: { cellWidth: 14, halign: "center" },
-        7: { cellWidth: 22, halign: "right" },
-      },
+      columnStyles: colStyles,
       theme: "grid",
       tableLineColor: BK,
       tableLineWidth: LW,
@@ -290,9 +326,20 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       tY += 4;
     };
 
+    const totalLineDiscount = quotation.items.reduce((sum, i) => sum.plus(new Decimal(i.discount.toString())), new Decimal(0));
+    const grossTotal = quotation.items.reduce((sum, i) => {
+      const q = new Decimal(i.quantity.toString());
+      const p = new Decimal(i.unitPrice.toString());
+      return sum.plus(q.mul(p));
+    }, new Decimal(0));
+
+    if (totalLineDiscount.gt(0)) {
+      totRow("Gross Total", "Rs. " + fmt(grossTotal));
+      totRow("Discount", "- Rs. " + fmt(totalLineDiscount));
+    }
     totRow("Subtotal", "Rs. " + fmt(quotation.subtotal));
     if (new Decimal(quotation.discountAmount.toString()).gt(0)) {
-      totRow("Discount", "- Rs. " + fmt(quotation.discountAmount));
+      totRow("Addl. Discount", "- Rs. " + fmt(quotation.discountAmount));
     }
     totRow("Tax", "Rs. " + fmt(quotation.taxAmount));
     if (new Decimal(quotation.shippingAmount.toString()).gt(0)) {
