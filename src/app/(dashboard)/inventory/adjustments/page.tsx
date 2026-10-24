@@ -30,7 +30,7 @@ export default async function AdjustmentsPage() {
 
   const products = await prisma.product.findMany({
     where: { isActive: true },
-    select: { id: true, name: true, sku: true },
+    select: { id: true, name: true, sku: true, unitOfMeasure: true },
     orderBy: { name: "asc" },
   });
 

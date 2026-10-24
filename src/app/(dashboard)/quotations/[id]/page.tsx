@@ -3,7 +3,8 @@ import prisma from "@/lib/db/prisma";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Send, CheckCircle, XCircle, ShoppingCart, FileText, Gift, MapPin } from "lucide-react";
+import { ArrowLeft, Send, CheckCircle, XCircle, ShoppingCart, FileText, Gift, MapPin, Printer, Edit } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { updateQuoteStatus, convertToOrder } from "../actions";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -57,8 +58,21 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
           </div>
         </div>
 
-        {canEdit && (
-          <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2">
+          <a href={`/api/quotations/${id}/pdf`} target="_blank" rel="noopener noreferrer">
+            <Button variant="outline" size="sm">
+              <Printer className="h-4 w-4" />
+              Print
+            </Button>
+          </a>
+        {canEdit && quotation.status !== "CONVERTED" && (
+          <>
+            <Link href={`/quotations/${id}/edit`}>
+              <Button variant="outline" size="sm">
+                <Edit className="h-4 w-4" />
+                Edit
+              </Button>
+            </Link>
             {quotation.status === "DRAFT" && (
               <form action={async () => { "use server"; await updateQuoteStatus(quotation.id, "SENT"); }}>
                 <button className="inline-flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
@@ -91,8 +105,9 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
                 </button>
               </form>
             )}
-          </div>
+          </>
         )}
+        </div>
       </div>
 
       {quotation.salesOrder && (
@@ -127,6 +142,12 @@ export default async function QuotationDetailPage({ params }: { params: Promise<
                 <div className="text-muted-foreground">Valid Until</div>
                 <div className="font-medium">{formatDate(quotation.validUntil)}</div>
               </div>
+              {quotation.deliveryDate && (
+                <div>
+                  <div className="text-muted-foreground">Delivery Date</div>
+                  <div className="font-medium">{formatDate(quotation.deliveryDate)}</div>
+                </div>
+              )}
               <div>
                 <div className="text-muted-foreground">Items</div>
                 <div className="font-medium">{quotation.items.length} item{quotation.items.length !== 1 ? "s" : ""}</div>

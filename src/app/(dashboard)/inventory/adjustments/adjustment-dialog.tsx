@@ -18,13 +18,19 @@ import {
 import { Plus } from "lucide-react";
 import { adjustStock } from "../actions";
 
+import { getUnitLabel, isWeightUnit } from "@/lib/utils";
+
 interface Props {
-  products: Array<{ id: string; name: string; sku: string }>;
+  products: Array<{ id: string; name: string; sku: string; unitOfMeasure: string }>;
   warehouses: Array<{ id: string; name: string; code: string }>;
 }
 
 export function StockAdjustmentDialog({ products, warehouses }: Props) {
   const [open, setOpen] = useState(false);
+  const [selectedProductId, setSelectedProductId] = useState<string>("");
+  const selectedProduct = products.find((p) => p.id === selectedProductId);
+  const unitLabel = selectedProduct ? getUnitLabel(selectedProduct.unitOfMeasure) : "";
+  const step = selectedProduct && isWeightUnit(selectedProduct.unitOfMeasure) ? "0.001" : "1";
   const [state, formAction, isPending] = useActionState(async (_prev: unknown, formData: FormData) => {
     const result = await adjustStock(_prev, formData);
     if (result.success) setOpen(false);
@@ -50,7 +56,7 @@ export function StockAdjustmentDialog({ products, warehouses }: Props) {
         <form action={formAction} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="productId">Product</Label>
-            <Select name="productId" required>
+            <Select name="productId" required onValueChange={setSelectedProductId}>
               <SelectTrigger id="productId">
                 <SelectValue placeholder="Select product" />
               </SelectTrigger>
@@ -82,8 +88,8 @@ export function StockAdjustmentDialog({ products, warehouses }: Props) {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="quantity">Quantity (+/-)</Label>
-              <Input id="quantity" name="quantity" type="number" step="0.001" required placeholder="e.g. 100 or -50" />
+              <Label htmlFor="quantity">Quantity (+/-){unitLabel ? ` (${unitLabel})` : ""}</Label>
+              <Input id="quantity" name="quantity" type="number" step={step} required placeholder="e.g. 100 or -50" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="lotNumber">Lot Number (optional)</Label>

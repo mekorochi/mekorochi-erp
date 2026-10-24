@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { createQuotation } from "@/app/(dashboard)/quotations/actions";
 import { formatCurrency } from "@/lib/utils";
 import { Plus, Trash2, Gift, X } from "lucide-react";
 import Decimal from "decimal.js";
@@ -45,33 +44,57 @@ interface Recipient {
   customization: string;
 }
 
+interface InitialData {
+  id: string;
+  customerId: string;
+  validUntil: string;
+  deliveryDate?: string;
+  isGifting: boolean;
+  customization?: string;
+  notes?: string;
+  termsConditions?: string;
+  discountAmount: number;
+  shippingAmount: number;
+  items: QuoteItem[];
+  recipients: Recipient[];
+}
+
 export default function QuotationForm({
   customers,
   products,
+  initialData,
+  onSubmit,
+  submitLabel,
 }: {
   customers: Customer[];
   products: Product[];
+  initialData?: InitialData;
+  onSubmit: (data: Record<string, unknown>) => Promise<{ error?: string; success?: boolean; id?: string }>;
+  submitLabel?: string;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState("");
 
-  const [customerId, setCustomerId] = useState("");
+  const [customerId, setCustomerId] = useState(initialData?.customerId || "");
   const [validUntil, setValidUntil] = useState(
-    new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
+    initialData?.validUntil || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
   );
-  const [isGifting, setIsGifting] = useState(false);
-  const [customization, setCustomization] = useState("");
-  const [notes, setNotes] = useState("");
-  const [termsConditions, setTermsConditions] = useState("");
-  const [discountAmount, setDiscountAmount] = useState(0);
-  const [shippingAmount, setShippingAmount] = useState(0);
+  const [deliveryDate, setDeliveryDate] = useState(initialData?.deliveryDate || "");
+  const [isGifting, setIsGifting] = useState(initialData?.isGifting || false);
+  const [customization, setCustomization] = useState(initialData?.customization || "");
+  const [notes, setNotes] = useState(initialData?.notes || "");
+  const [termsConditions, setTermsConditions] = useState(initialData?.termsConditions || "");
+  const [discountAmount, setDiscountAmount] = useState(initialData?.discountAmount || 0);
+  const [shippingAmount, setShippingAmount] = useState(initialData?.shippingAmount || 0);
 
-  const [items, setItems] = useState<QuoteItem[]>([
-    { productId: "", description: "", quantity: 1, unitPrice: 0, discount: 0, taxRate: 0 },
-  ]);
+  const [items, setItems] = useState<QuoteItem[]>(
+    initialData?.items?.length
+      ? initialData.items
+      : [{ productId: "", description: "", quantity: 1, unitPrice: 0, discount: 0, taxRate: 0 }]
+  );
 
-  const [recipients, setRecipients] = useState<Recipient[]>([]);
+  const [recipients, setRecipients] = useState<Recipient[]>(initialData?.recipients || []);
 
   function addItem() {
     setItems([...items, { productId: "", description: "", quantity: 1, unitPrice: 0, discount: 0, taxRate: 0 }]);
@@ -134,9 +157,10 @@ export default function QuotationForm({
 
     setError("");
     startTransition(async () => {
-      const result = await createQuotation({
+      const result = await onSubmit({
         customerId,
         validUntil,
+        deliveryDate: deliveryDate || undefined,
         isGifting,
         customization: customization || undefined,
         notes: notes || undefined,
@@ -154,10 +178,10 @@ export default function QuotationForm({
         recipients: isGifting ? recipients.filter((r) => r.name && r.address) : undefined,
       });
 
-      if ("error" in result && result.error) {
+      if (result.error) {
         setError(String(result.error));
-      } else if ("success" in result && result.success) {
-        router.push(`/quotations/${result.id}`);
+      } else if (result.success) {
+        router.push(`/quotations/${result.id || initialData?.id}`);
       }
     });
   }
@@ -168,10 +192,10 @@ export default function QuotationForm({
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>
       )}
 
-      {/* Customer & Validity */}
+      {/* Customer & Dates */}
       <div className="bg-card rounded-xl border shadow-sm p-4 sm:p-6 space-y-4">
         <h2 className="font-semibold">Quote Details</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium mb-1">Customer *</label>
             <select
@@ -193,6 +217,15 @@ export default function QuotationForm({
               type="date"
               value={validUntil}
               onChange={(e) => setValidUntil(e.target.value)}
+              className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Delivery Date</label>
+            <input
+              type="date"
+              value={deliveryDate}
+              onChange={(e) => setDeliveryDate(e.target.value)}
               className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
@@ -496,7 +529,7 @@ export default function QuotationForm({
             disabled={isPending}
             className="w-full py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
           >
-            {isPending ? "Creating..." : "Create Quotation"}
+            {isPending ? "Saving..." : (submitLabel || "Create Quotation")}
           </button>
         </div>
       </div>

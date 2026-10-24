@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { Edit, Archive, Package, ArrowLeft, Tag, Scale, Clock, AlertTriangle } from "lucide-react";
 import prisma from "@/lib/db/prisma";
 import { requirePermission, checkPermission } from "@/lib/auth";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, getUnitLabel } from "@/lib/utils";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -117,8 +117,14 @@ export default async function ProductDetailPage({ params }: Props) {
                 </div>
                 <div>
                   <dt className="text-muted-foreground">Unit</dt>
-                  <dd className="font-medium">{product.unitOfMeasure}</dd>
+                  <dd className="font-medium">{product.unitOfMeasure} ({getUnitLabel(product.unitOfMeasure)})</dd>
                 </div>
+                {product.unitContent && product.unitContentUnit && (
+                  <div>
+                    <dt className="text-muted-foreground">Net Content</dt>
+                    <dd className="font-medium">{product.unitContent.toString()} {product.unitContentUnit} per unit</dd>
+                  </div>
+                )}
                 <div>
                   <dt className="text-muted-foreground">Status</dt>
                   <dd>
@@ -308,15 +314,15 @@ export default async function ProductDetailPage({ params }: Props) {
               <CardContent className="space-y-3 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Total Stock</span>
-                  <span className="font-semibold tabular-nums">{totalStock.toFixed(2)}</span>
+                  <span className="font-semibold tabular-nums">{totalStock.toFixed(2)} {getUnitLabel(product.unitOfMeasure)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Reserved</span>
-                  <span className="tabular-nums">{totalReserved.toFixed(2)}</span>
+                  <span className="tabular-nums">{totalReserved.toFixed(2)} {getUnitLabel(product.unitOfMeasure)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Available</span>
-                  <span className="tabular-nums font-medium">{(totalStock - totalReserved).toFixed(2)}</span>
+                  <span className="tabular-nums font-medium">{(totalStock - totalReserved).toFixed(2)} {getUnitLabel(product.unitOfMeasure)}</span>
                 </div>
                 {product.reorderLevel && totalStock < parseFloat(product.reorderLevel.toString()) && (
                   <div className="flex items-center gap-2 text-destructive pt-2 border-t">

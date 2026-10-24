@@ -21,6 +21,9 @@ export const productSchema = z.object({
   ingredients: z.string().optional(),
   reorderLevel: z.coerce.number().min(0).optional(),
   minOrderQty: z.coerce.number().min(0).optional(),
+  unitContent: z.coerce.number().min(0).optional(),
+  unitContentUnit: z.string().optional(),
+  autoConsumeBom: z.boolean().default(false),
   isBundle: z.boolean().default(false),
   isActive: z.boolean().default(true),
 });

@@ -1,6 +1,6 @@
 import { requirePermission, checkPermission } from "@/lib/auth";
 import prisma from "@/lib/db/prisma";
-import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
+import { formatCurrency, formatDate, formatDateTime, getUnitLabel } from "@/lib/utils";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
@@ -180,7 +180,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                         <div className="font-medium">{item.product.name}</div>
                         <div className="text-xs text-muted-foreground">{item.product.sku}</div>
                       </td>
-                      <td className="px-4 py-2.5 text-right">{parseFloat(item.quantity.toString())}</td>
+                      <td className="px-4 py-2.5 text-right">{parseFloat(item.quantity.toString())} {getUnitLabel(item.product.unitOfMeasure)}</td>
                       <td className="px-4 py-2.5 text-right">
                         <span className={parseFloat(item.fulfilledQty.toString()) >= parseFloat(item.quantity.toString()) ? "text-green-600" : ""}>
                           {parseFloat(item.fulfilledQty.toString())}

@@ -1,6 +1,6 @@
 import { requirePermission } from "@/lib/auth";
 import prisma from "@/lib/db/prisma";
-import { formatCurrency, formatNumber } from "@/lib/utils";
+import { formatCurrency, formatNumber, getUnitLabel } from "@/lib/utils";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -197,11 +197,11 @@ export default async function InventoryPage({
                           <td className="px-4 py-3 font-medium">{si.product.name}</td>
                           <td className="px-4 py-3 text-muted-foreground font-mono text-xs">{si.product.sku}</td>
                           <td className="px-4 py-3">{si.warehouse.name}</td>
-                          <td className="px-4 py-3 text-right font-mono">{formatNumber(qty.toNumber(), 1)}</td>
+                          <td className="px-4 py-3 text-right font-mono">{formatNumber(qty.toNumber(), 1)} <span className="text-muted-foreground text-xs">{getUnitLabel(si.product.unitOfMeasure)}</span></td>
                           <td className="px-4 py-3 text-right font-mono text-muted-foreground">
-                            {reserved.gt(0) ? formatNumber(reserved.toNumber(), 1) : "—"}
+                            {reserved.gt(0) ? `${formatNumber(reserved.toNumber(), 1)} ${getUnitLabel(si.product.unitOfMeasure)}` : "—"}
                           </td>
-                          <td className="px-4 py-3 text-right font-mono">{formatNumber(available.toNumber(), 1)}</td>
+                          <td className="px-4 py-3 text-right font-mono">{formatNumber(available.toNumber(), 1)} <span className="text-muted-foreground text-xs">{getUnitLabel(si.product.unitOfMeasure)}</span></td>
                           <td className="px-4 py-3 text-right">{formatCurrency(cost.toNumber())}</td>
                           <td className="px-4 py-3 text-right">{formatCurrency(value.toNumber())}</td>
                           <td className="px-4 py-3">
@@ -251,11 +251,11 @@ export default async function InventoryPage({
                     <div className="grid grid-cols-3 gap-2 text-sm">
                       <div>
                         <p className="text-xs text-muted-foreground">Qty</p>
-                        <p className="font-mono font-medium">{formatNumber(qty.toNumber(), 1)}</p>
+                        <p className="font-mono font-medium">{formatNumber(qty.toNumber(), 1)} {getUnitLabel(si.product.unitOfMeasure)}</p>
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground">Available</p>
-                        <p className="font-mono font-medium">{formatNumber(available.toNumber(), 1)}</p>
+                        <p className="font-mono font-medium">{formatNumber(available.toNumber(), 1)} {getUnitLabel(si.product.unitOfMeasure)}</p>
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground">Value</p>

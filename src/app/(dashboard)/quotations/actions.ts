@@ -11,6 +11,7 @@ import { revalidatePath } from "next/cache";
 export async function createQuotation(formData: {
   customerId: string;
   validUntil: string;
+  deliveryDate?: string;
   isGifting: boolean;
   customization?: string;
   notes?: string;
@@ -82,6 +83,7 @@ export async function createQuotation(formData: {
       customerId: formData.customerId,
       status: "DRAFT",
       validUntil: new Date(formData.validUntil),
+      deliveryDate: formData.deliveryDate ? new Date(formData.deliveryDate) : null,
       subtotal: subtotal.toFixed(2),
       discountAmount: orderDiscount.toFixed(2),
       taxAmount: totalTax.toFixed(2),
@@ -123,6 +125,128 @@ export async function createQuotation(formData: {
 
   revalidatePath("/quotations");
   return { success: true, id: quotation.id, quoteNumber };
+}
+
+export async function updateQuotation(quoteId: string, formData: {
+  customerId: string;
+  validUntil: string;
+  deliveryDate?: string;
+  isGifting: boolean;
+  customization?: string;
+  notes?: string;
+  termsConditions?: string;
+  discountAmount?: number;
+  shippingAmount?: number;
+  items: Array<{
+    productId: string;
+    description?: string;
+    quantity: number;
+    unitPrice: number;
+    discount: number;
+    taxRate: number;
+  }>;
+  recipients?: Array<{
+    name: string;
+    phone?: string;
+    email?: string;
+    address: string;
+    city?: string;
+    state?: string;
+    pincode?: string;
+    giftNote?: string;
+    deliveryDate?: string;
+    customization?: string;
+  }>;
+}) {
+  const user = await requirePermission("quotations:edit");
+
+  const existing = await prisma.quotation.findUnique({ where: { id: quoteId } });
+  if (!existing) return { error: "Quotation not found" };
+  if (existing.status === "CONVERTED") return { error: "Cannot edit a converted quotation" };
+
+  let subtotal = new Decimal(0);
+  let totalTax = new Decimal(0);
+
+  const calculatedItems = formData.items.map((item, idx) => {
+    const qty = new Decimal(item.quantity);
+    const price = new Decimal(item.unitPrice);
+    const disc = new Decimal(item.discount || 0);
+    const taxRate = new Decimal(item.taxRate || 0);
+    const lineTotal = qty.mul(price);
+    const taxableAmount = lineTotal.minus(disc);
+    const taxAmount = taxableAmount.mul(taxRate).div(100).toDecimalPlaces(2);
+    const total = taxableAmount.plus(taxAmount);
+    subtotal = subtotal.plus(taxableAmount);
+    totalTax = totalTax.plus(taxAmount);
+
+    return {
+      productId: item.productId,
+      description: item.description,
+      quantity: qty.toFixed(3),
+      unitPrice: price.toFixed(2),
+      discount: disc.toFixed(2),
+      taxRate: taxRate.toFixed(2),
+      taxAmount: taxAmount.toFixed(2),
+      totalAmount: total.toDecimalPlaces(2).toFixed(2),
+      sortOrder: idx,
+    };
+  });
+
+  const orderDiscount = new Decimal(formData.discountAmount || 0);
+  const shipping = new Decimal(formData.shippingAmount || 0);
+  const totalAmount = subtotal.minus(orderDiscount).plus(totalTax).plus(shipping);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.quoteItem.deleteMany({ where: { quotationId: quoteId } });
+    await tx.quoteRecipient.deleteMany({ where: { quotationId: quoteId } });
+
+    await tx.quotation.update({
+      where: { id: quoteId },
+      data: {
+        customerId: formData.customerId,
+        validUntil: new Date(formData.validUntil),
+        deliveryDate: formData.deliveryDate ? new Date(formData.deliveryDate) : null,
+        subtotal: subtotal.toFixed(2),
+        discountAmount: orderDiscount.toFixed(2),
+        taxAmount: totalTax.toFixed(2),
+        shippingAmount: shipping.toFixed(2),
+        totalAmount: totalAmount.toDecimalPlaces(2).toFixed(2),
+        customization: formData.customization,
+        notes: formData.notes,
+        termsConditions: formData.termsConditions,
+        isGifting: formData.isGifting,
+        items: { create: calculatedItems },
+        recipients: formData.isGifting && formData.recipients
+          ? {
+              create: formData.recipients.map((r) => ({
+                name: r.name,
+                phone: r.phone,
+                email: r.email,
+                address: r.address,
+                city: r.city,
+                state: r.state,
+                pincode: r.pincode,
+                giftNote: r.giftNote,
+                deliveryDate: r.deliveryDate ? new Date(r.deliveryDate) : undefined,
+                customization: r.customization,
+              })),
+            }
+          : undefined,
+      },
+    });
+  });
+
+  await createAuditEvent({
+    userId: user.id,
+    action: "UPDATE",
+    entityType: "Quotation",
+    entityId: quoteId,
+    after: { customerId: formData.customerId, totalAmount: totalAmount.toFixed(2) },
+  });
+
+  revalidatePath("/quotations");
+  revalidatePath(`/quotations/${quoteId}`);
+  return { success: true, id: quoteId };
 }
 
 export async function updateQuoteStatus(quoteId: string, status: "SENT" | "ACCEPTED" | "REJECTED" | "EXPIRED") {

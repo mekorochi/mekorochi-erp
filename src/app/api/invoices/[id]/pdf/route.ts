@@ -6,6 +6,7 @@ import autoTable from "jspdf-autotable";
 import Decimal from "decimal.js";
 import fs from "fs";
 import path from "path";
+import { getUnitLabel } from "@/lib/utils";
 
 function fmt(amount: number | string | Decimal): string {
   const n = typeof amount === "string" ? parseFloat(amount) : amount instanceof Decimal ? amount.toNumber() : amount;
@@ -174,7 +175,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         String(idx + 1),
         item.description + (item.product?.sku ? `\n${item.product.sku}` : ""),
         item.hsnCode || "",
-        new Decimal(item.quantity.toString()).toFixed(2),
+        new Decimal(item.quantity.toString()).toFixed(2) + (item.product ? " " + getUnitLabel(item.product.unitOfMeasure) : ""),
         fmt(item.unitPrice),
         fmt(item.taxableAmount),
       ];

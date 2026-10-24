@@ -188,6 +188,9 @@ model Product {
   images          Json?
   reorderLevel    Decimal?      @db.Decimal(12, 3)
   minOrderQty     Decimal?      @db.Decimal(12, 3)
+  unitContent     Decimal?      @db.Decimal(12, 3)
+  unitContentUnit String?
+  autoConsumeBom  Boolean       @default(false)
   isBundle        Boolean       @default(false)
   isActive        Boolean       @default(true)
   channelListings Json?
@@ -776,6 +779,7 @@ model Quotation {
   customization   String?
   notes           String?
   termsConditions String?
+  deliveryDate    DateTime?
   isGifting       Boolean       @default(false)
   giftingDetails  Json?
   createdBy       String

@@ -52,6 +52,19 @@ export function formatWeight(grams: number | string | Decimal): string {
   return `${formatNumber(g, 0)} g`;
 }
 
+const UNIT_LABELS: Record<string, string> = {
+  PIECE: "pcs", BOX: "box", GRAM: "g", KILOGRAM: "kg",
+  LITER: "L", MILLILITER: "mL", METER: "m", SET: "set",
+};
+
+export function getUnitLabel(uom: string): string {
+  return UNIT_LABELS[uom] || uom.toLowerCase();
+}
+
+export function isWeightUnit(uom: string): boolean {
+  return ["GRAM", "KILOGRAM", "LITER", "MILLILITER", "METER"].includes(uom);
+}
+
 export function generateSlug(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }

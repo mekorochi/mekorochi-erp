@@ -1,6 +1,7 @@
 import { requirePermission } from "@/lib/auth";
 import prisma from "@/lib/db/prisma";
 import QuotationForm from "@/components/shared/quotation-form";
+import { createQuotation } from "../actions";
 
 export default async function NewQuotationPage() {
   await requirePermission("quotations:create");
@@ -24,13 +25,18 @@ export default async function NewQuotationPage() {
     taxRate: p.taxRate?.toString() || "0",
   }));
 
+  async function handleCreate(data: Record<string, unknown>) {
+    "use server";
+    return createQuotation(data as Parameters<typeof createQuotation>[0]);
+  }
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold font-[family-name:var(--font-playfair)]">New Quotation</h1>
         <p className="text-muted-foreground text-sm mt-1">Create a quotation for a customer or corporate gifting order.</p>
       </div>
-      <QuotationForm customers={customers} products={serializedProducts} />
+      <QuotationForm customers={customers} products={serializedProducts} onSubmit={handleCreate} />
     </div>
   );
 }

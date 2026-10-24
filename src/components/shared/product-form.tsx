@@ -73,6 +73,9 @@ export function ProductForm({ initialData, categories, onSubmit }: ProductFormPr
       ingredients: initialData?.ingredients || "",
       reorderLevel: initialData?.reorderLevel,
       minOrderQty: initialData?.minOrderQty,
+      unitContent: initialData?.unitContent,
+      unitContentUnit: initialData?.unitContentUnit || "",
+      autoConsumeBom: initialData?.autoConsumeBom || false,
       isBundle: initialData?.isBundle || false,
       isActive: initialData?.isActive ?? true,
     },
@@ -285,6 +288,33 @@ export function ProductForm({ initialData, categories, onSubmit }: ProductFormPr
                 <Input id="minOrderQty" type="number" step="0.001" {...register("minOrderQty")} placeholder="0" />
               </div>
             </div>
+
+            <div className="pt-4 border-t">
+              <h4 className="font-medium mb-3">Net Content per Unit</h4>
+              <p className="text-xs text-muted-foreground mb-3">
+                Define the net content of one sellable unit (e.g. 100g per bar, 1kg per pack)
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="unitContent">Amount</Label>
+                  <Input id="unitContent" type="number" step="0.001" {...register("unitContent")} placeholder="e.g. 100" />
+                </div>
+                <div>
+                  <Label htmlFor="unitContentUnit">Unit</Label>
+                  <select
+                    id="unitContentUnit"
+                    {...register("unitContentUnit")}
+                    className="w-full h-11 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    <option value="">Select unit</option>
+                    <option value="g">Gram (g)</option>
+                    <option value="kg">Kilogram (kg)</option>
+                    <option value="mL">Milliliter (mL)</option>
+                    <option value="L">Liter (L)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -299,6 +329,20 @@ export function ProductForm({ initialData, categories, onSubmit }: ProductFormPr
             />
             <Label>Active</Label>
           </div>
+          {selectedType === "FINISHED_GOOD" && (
+            <div className="mt-4 flex items-start gap-3">
+              <Switch
+                checked={watch("autoConsumeBom")}
+                onCheckedChange={(val) => setValue("autoConsumeBom", val)}
+              />
+              <div>
+                <Label>Auto-consume ingredients on fulfillment</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  When this product is sold, automatically deduct raw material ingredients based on its recipe (BOM)
+                </p>
+              </div>
+            </div>
+          )}
           {isBundle && (
             <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
               <p className="text-sm font-medium text-amber-800">Bundle Product</p>
