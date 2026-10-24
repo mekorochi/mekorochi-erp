@@ -34,7 +34,7 @@ export default async function ExpensesPage({
     ];
   }
 
-  const [expenses, total, categories, monthTotal, pendingCount, paidByValues] = await Promise.all([
+  const [expenses, total, categories, allTimeTotal, monthTotal, pendingCount, paidByValues] = await Promise.all([
     prisma.expense.findMany({
       where: where as any,
       include: { category: true },
@@ -44,6 +44,10 @@ export default async function ExpensesPage({
     }),
     prisma.expense.count({ where: where as any }),
     prisma.expenseCategory.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
+    prisma.expense.aggregate({
+      where: { status: { in: ["APPROVED", "PENDING"] } },
+      _sum: { totalAmount: true },
+    }),
     prisma.expense.aggregate({
       where: {
         expenseDate: { gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) },
@@ -80,7 +84,11 @@ export default async function ExpensesPage({
       </div>
 
       {/* Summary */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="rounded-xl border bg-card p-4">
+          <p className="text-sm text-muted-foreground">Total Expenses</p>
+          <p className="text-2xl font-semibold mt-1">{formatCurrency(allTimeTotal._sum.totalAmount || 0)}</p>
+        </div>
         <div className="rounded-xl border bg-card p-4">
           <p className="text-sm text-muted-foreground">This Month</p>
           <p className="text-2xl font-semibold mt-1">{formatCurrency(monthTotal._sum.totalAmount || 0)}</p>
