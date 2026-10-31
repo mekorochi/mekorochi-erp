@@ -189,19 +189,21 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     const rows = invoice.items.map((item, idx) => {
-      const disc = new Decimal(item.discount.toString());
+      const qty = new Decimal(item.quantity.toString());
+      const flatDisc = new Decimal(item.discount.toString());
+      const discPerUnit = qty.gt(0) ? flatDisc.div(qty).toDecimalPlaces(2) : new Decimal(0);
       const unitPrice = new Decimal(item.unitPrice.toString());
-      const netRate = unitPrice.minus(disc);
+      const netRate = unitPrice.minus(discPerUnit);
 
       const base = [
         String(idx + 1),
-        item.description + (item.product?.sku ? `\n${item.product.sku}` : ""),
+        item.description,
         item.hsnCode || "",
-        new Decimal(item.quantity.toString()).toFixed(2) + (item.product ? " " + getUnitLabel(item.product.unitOfMeasure) : ""),
+        qty.toFixed(2) + (item.product ? " " + getUnitLabel(item.product.unitOfMeasure) : ""),
       ];
 
       if (hasAnyDiscount) {
-        base.push(fmt(unitPrice), disc.gt(0) ? fmt(disc) : "-", fmt(netRate));
+        base.push(fmt(unitPrice), discPerUnit.gt(0) ? fmt(discPerUnit) : "-", fmt(netRate));
       } else {
         base.push(fmt(unitPrice));
       }
@@ -283,9 +285,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     totRow("Subtotal", fmt(invoice.subtotal));
     if (hasAnyDiscount) {
       const totalLineDiscount = invoice.items.reduce((sum, i) => {
-        const qty = new Decimal(i.quantity.toString());
-        const d = new Decimal(i.discount.toString());
-        return sum.plus(qty.mul(d));
+        return sum.plus(new Decimal(i.discount.toString()));
       }, new Decimal(0));
       if (totalLineDiscount.gt(0)) {
         totRow("Discount", "- Rs. " + fmt(totalLineDiscount));
