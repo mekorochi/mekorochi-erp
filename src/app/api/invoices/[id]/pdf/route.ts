@@ -148,7 +148,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     if (invoice.customer.company) { bY += 3.5; doc.text(invoice.customer.company, M + 2, bY); }
     if (billing) {
       const bAddr = [billing.line1, billing.line2, [billing.city, billing.state, billing.pincode].filter(Boolean).join(", ")].filter(Boolean).join(", ");
-      if (bAddr) { bY += 3.5; doc.text(bAddr, M + 2, bY, { maxWidth: CW / 2 - 6 }); }
+      if (bAddr) {
+        bY += 3.5;
+        const addrLines = doc.splitTextToSize(bAddr, CW / 2 - 6);
+        doc.text(addrLines, M + 2, bY);
+        bY += (addrLines.length - 1) * 3.5;
+      }
     }
     if (invoice.customer.gstin) { bY += 3.5; doc.setFont("helvetica", "bold"); doc.text(`GSTIN: ${invoice.customer.gstin}`, M + 2, bY); }
     if (invoice.customer.email) { bY += 3.5; doc.setFont("helvetica", "normal"); doc.text(invoice.customer.email, M + 2, bY); }
@@ -158,7 +163,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       doc.setFont("helvetica", "normal");
       doc.text("Ship To", col2X + 2, buyerY + 4);
       const sAddr = [shipping.line1, shipping.line2, [shipping.city, shipping.state, shipping.pincode].filter(Boolean).join(", ")].filter(Boolean).join(", ");
-      if (sAddr) doc.text(sAddr, col2X + 2, buyerY + 8, { maxWidth: CW / 2 - 6 });
+      if (sAddr) {
+        const sLines = doc.splitTextToSize(sAddr, CW / 2 - 6);
+        doc.text(sLines, col2X + 2, buyerY + 8);
+      }
     }
 
     y = bY + 3;
