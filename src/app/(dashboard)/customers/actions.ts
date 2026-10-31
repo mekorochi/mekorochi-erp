@@ -14,12 +14,30 @@ export async function createCustomer(formData: Record<string, unknown>) {
   }
 
   try {
+    const billingAddr = formData.billingAddress as { addressLine1?: string; addressLine2?: string; city?: string; state?: string; pincode?: string } | undefined;
+
     const customer = await prisma.customer.create({
       data: {
         ...parsed.data,
         tags: parsed.data.tags ? (parsed.data.tags as string[]) : undefined,
       },
     });
+
+    if (billingAddr?.addressLine1 || billingAddr?.city) {
+      await prisma.customerAddress.create({
+        data: {
+          customerId: customer.id,
+          label: "Billing",
+          addressLine1: billingAddr.addressLine1 || "",
+          addressLine2: billingAddr.addressLine2 || "",
+          city: billingAddr.city || "",
+          state: billingAddr.state || "",
+          pincode: billingAddr.pincode || "",
+          isDefault: true,
+          isBilling: true,
+        },
+      });
+    }
 
     await createAuditEvent({
       userId: user.id,
@@ -44,6 +62,8 @@ export async function updateCustomer(id: string, formData: Record<string, unknow
   }
 
   try {
+    const billingAddr = formData.billingAddress as { addressLine1?: string; addressLine2?: string; city?: string; state?: string; pincode?: string } | undefined;
+
     const before = await prisma.customer.findUnique({ where: { id } });
     const customer = await prisma.customer.update({
       where: { id },
@@ -52,6 +72,38 @@ export async function updateCustomer(id: string, formData: Record<string, unknow
         tags: parsed.data.tags ? (parsed.data.tags as string[]) : undefined,
       },
     });
+
+    if (billingAddr?.addressLine1 || billingAddr?.city) {
+      const existingBilling = await prisma.customerAddress.findFirst({
+        where: { customerId: id, isBilling: true },
+      });
+      if (existingBilling) {
+        await prisma.customerAddress.update({
+          where: { id: existingBilling.id },
+          data: {
+            addressLine1: billingAddr.addressLine1 || "",
+            addressLine2: billingAddr.addressLine2 || "",
+            city: billingAddr.city || "",
+            state: billingAddr.state || "",
+            pincode: billingAddr.pincode || "",
+          },
+        });
+      } else {
+        await prisma.customerAddress.create({
+          data: {
+            customerId: id,
+            label: "Billing",
+            addressLine1: billingAddr.addressLine1 || "",
+            addressLine2: billingAddr.addressLine2 || "",
+            city: billingAddr.city || "",
+            state: billingAddr.state || "",
+            pincode: billingAddr.pincode || "",
+            isDefault: true,
+            isBilling: true,
+          },
+        });
+      }
+    }
 
     await createAuditEvent({
       userId: user.id,

@@ -15,6 +15,7 @@ export async function createOrder(formData: {
   channel?: string;
   notes?: string;
   giftNote?: string;
+  deliveryTerms?: string;
   discountAmount?: number;
   shippingAmount?: number;
   shippingAddress?: object;
@@ -55,6 +56,7 @@ export async function createOrder(formData: {
       taxRate: i.taxRate,
       hsnCode: i.hsnCode,
     })),
+    deliveryTerms: formData.deliveryTerms,
     shippingAddress: formData.shippingAddress,
     billingAddress: formData.billingAddress,
     giftNote: formData.giftNote,

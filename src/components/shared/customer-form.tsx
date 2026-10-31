@@ -25,6 +25,13 @@ interface CustomerFormProps {
     creditLimit?: string | number | null;
     creditDays?: number | null;
     notes?: string | null;
+    billingAddress?: {
+      addressLine1?: string;
+      addressLine2?: string;
+      city?: string;
+      state?: string;
+      pincode?: string;
+    } | null;
   };
 }
 
@@ -62,6 +69,13 @@ export function CustomerForm({ customer }: CustomerFormProps) {
       creditLimit: formData.get("creditLimit") ? Number(formData.get("creditLimit")) : undefined,
       creditDays: formData.get("creditDays") ? Number(formData.get("creditDays")) : 0,
       notes: formData.get("notes") || undefined,
+      billingAddress: {
+        addressLine1: formData.get("addressLine1") || undefined,
+        addressLine2: formData.get("addressLine2") || undefined,
+        city: formData.get("city") || undefined,
+        state: formData.get("state") || undefined,
+        pincode: formData.get("pincode") || undefined,
+      },
     };
 
     const result = customer
@@ -118,6 +132,34 @@ export function CustomerForm({ customer }: CustomerFormProps) {
           <div className="space-y-2">
             <Label htmlFor="phone">Phone</Label>
             <Input id="phone" name="phone" type="tel" defaultValue={customer?.phone || ""} />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Billing Address</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="sm:col-span-2 space-y-2">
+            <Label htmlFor="addressLine1">Address Line 1</Label>
+            <Input id="addressLine1" name="addressLine1" placeholder="Building, street" defaultValue={customer?.billingAddress?.addressLine1 || ""} />
+          </div>
+          <div className="sm:col-span-2 space-y-2">
+            <Label htmlFor="addressLine2">Address Line 2</Label>
+            <Input id="addressLine2" name="addressLine2" placeholder="Area, landmark" defaultValue={customer?.billingAddress?.addressLine2 || ""} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="city">City *</Label>
+            <Input id="city" name="city" placeholder="City" defaultValue={customer?.billingAddress?.city || ""} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="state">State *</Label>
+            <Input id="state" name="state" placeholder="State" defaultValue={customer?.billingAddress?.state || ""} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="pincode">Pincode</Label>
+            <Input id="pincode" name="pincode" placeholder="Pincode" defaultValue={customer?.billingAddress?.pincode || ""} />
           </div>
         </CardContent>
       </Card>

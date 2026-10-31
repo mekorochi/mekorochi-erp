@@ -23,10 +23,20 @@ export default async function EditCustomerPage({ params }: { params: Promise<{ i
       creditLimit: true,
       creditDays: true,
       notes: true,
+      addresses: {
+        where: { isBilling: true },
+        take: 1,
+        select: { addressLine1: true, addressLine2: true, city: true, state: true, pincode: true },
+      },
     },
   });
 
   if (!customer) notFound();
+
+  const serialized = {
+    ...JSON.parse(JSON.stringify(customer)),
+    billingAddress: customer.addresses[0] || null,
+  };
 
   return (
     <div>
@@ -36,7 +46,7 @@ export default async function EditCustomerPage({ params }: { params: Promise<{ i
           Update details for {customer.name}
         </p>
       </div>
-      <CustomerForm customer={JSON.parse(JSON.stringify(customer))} />
+      <CustomerForm customer={serialized} />
     </div>
   );
 }

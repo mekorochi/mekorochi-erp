@@ -284,6 +284,10 @@ export async function convertToOrder(quoteId: string) {
   if (!quotation) return { error: "Quotation not found" };
   if (quotation.status !== "ACCEPTED") return { error: "Only accepted quotations can be converted" };
 
+  const billingAddr = await prisma.customerAddress.findFirst({
+    where: { customerId: quotation.customerId, isBilling: true },
+  });
+
   const order = await createSalesOrder({
     customerId: quotation.customerId,
     channel: "Quotation",
@@ -299,6 +303,13 @@ export async function convertToOrder(quoteId: string) {
     })),
     shippingAmount: quotation.shippingAmount.toString(),
     discountAmount: quotation.discountAmount.toString(),
+    billingAddress: billingAddr ? {
+      line1: billingAddr.addressLine1,
+      line2: billingAddr.addressLine2 || "",
+      city: billingAddr.city,
+      state: billingAddr.state,
+      pincode: billingAddr.pincode,
+    } : undefined,
     notes: quotation.notes || undefined,
     giftNote: quotation.customization || undefined,
     createdBy: user.id,

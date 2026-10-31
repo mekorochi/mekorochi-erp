@@ -342,15 +342,45 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             </Link>
           </div>
 
-          {/* Shipping Address */}
+          {/* Delivery Terms & Addresses */}
+          {order.deliveryTerms && (
+            <div className="bg-card rounded-xl border shadow-sm p-4 sm:p-6">
+              <h3 className="font-semibold mb-2 text-sm flex items-center gap-2">
+                <Truck className="h-4 w-4 text-muted-foreground" />
+                Delivery Terms
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {order.deliveryTerms === "PICKUP" ? "Pickup from Facility" : "Delivery at Client Location"}
+              </p>
+            </div>
+          )}
+
+          {order.billingAddress && (
+            <div className="bg-card rounded-xl border shadow-sm p-4 sm:p-6">
+              <h3 className="font-semibold mb-2 text-sm flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-muted-foreground" />
+                Billing Address
+              </h3>
+              <div className="text-sm text-muted-foreground">
+                {(() => {
+                  const addr = order.billingAddress as Record<string, string>;
+                  return [addr.line1, addr.line2, addr.city, addr.state, addr.pincode].filter(Boolean).join(", ");
+                })()}
+              </div>
+            </div>
+          )}
+
           {order.shippingAddress && (
             <div className="bg-card rounded-xl border shadow-sm p-4 sm:p-6">
               <h3 className="font-semibold mb-2 text-sm flex items-center gap-2">
                 <MapPin className="h-4 w-4 text-muted-foreground" />
-                Shipping Address
+                Ship-to Address
               </h3>
               <div className="text-sm text-muted-foreground">
-                {Object.values(order.shippingAddress as Record<string, string>).filter(Boolean).join(", ")}
+                {(() => {
+                  const addr = order.shippingAddress as Record<string, string>;
+                  return [addr.line1, addr.line2, addr.city, addr.state, addr.pincode].filter(Boolean).join(", ");
+                })()}
               </div>
             </div>
           )}

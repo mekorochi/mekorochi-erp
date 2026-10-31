@@ -35,6 +35,7 @@ export async function createSalesOrder(data: {
   customerId: string;
   channel?: string;
   items: OrderItemData[];
+  deliveryTerms?: string;
   shippingAddress?: object;
   billingAddress?: object;
   giftNote?: string;
@@ -91,6 +92,7 @@ export async function createSalesOrder(data: {
       taxAmount: totalTax.toFixed(2),
       shippingAmount: shipping.toFixed(2),
       totalAmount: totalAmount.toDecimalPlaces(2).toFixed(2),
+      deliveryTerms: data.deliveryTerms || null,
       shippingAddress: data.shippingAddress as Prisma.InputJsonValue,
       billingAddress: data.billingAddress as Prisma.InputJsonValue,
       giftNote: data.giftNote,

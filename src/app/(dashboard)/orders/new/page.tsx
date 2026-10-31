@@ -33,6 +33,7 @@ export default async function NewOrderPage() {
       id: a.id,
       label: a.label,
       addressLine1: a.addressLine1,
+      addressLine2: a.addressLine2 || "",
       city: a.city,
       state: a.state,
       pincode: a.pincode,

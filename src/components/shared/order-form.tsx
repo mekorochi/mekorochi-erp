@@ -4,13 +4,14 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createOrder } from "@/app/(dashboard)/orders/actions";
 import { formatCurrency } from "@/lib/utils";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Truck, Building2 } from "lucide-react";
 import Decimal from "decimal.js";
 
 interface Address {
   id: string;
   label: string;
   addressLine1: string;
+  addressLine2?: string;
   city: string;
   state: string;
   pincode: string;
@@ -63,14 +64,17 @@ export default function OrderForm({
   const [channel, setChannel] = useState("Manual");
   const [notes, setNotes] = useState("");
   const [giftNote, setGiftNote] = useState("");
+  const [deliveryTerms, setDeliveryTerms] = useState<"PICKUP" | "DELIVERY">("PICKUP");
   const [discountAmount, setDiscountAmount] = useState(0);
   const [shippingAmount, setShippingAmount] = useState(0);
+  const [shipTo, setShipTo] = useState({ line1: "", line2: "", city: "", state: "", pincode: "" });
 
   const [items, setItems] = useState<OrderItem[]>([
     { productId: "", description: "", quantity: 1, unitPrice: 0, discount: 0, taxRate: 0, hsnCode: "" },
   ]);
 
   const selectedCustomer = customers.find((c) => c.id === customerId);
+  const customerBillingAddress = selectedCustomer?.addresses.find((a) => a.isBilling) || selectedCustomer?.addresses.find((a) => a.isDefault);
 
   function addItem() {
     setItems([...items, { productId: "", description: "", quantity: 1, unitPrice: 0, discount: 0, taxRate: 0, hsnCode: "" }]);
@@ -115,8 +119,18 @@ export default function OrderForm({
     }
 
     setError("");
-    const defaultShippingAddress = selectedCustomer?.addresses.find((a) => a.isShipping && a.isDefault) || selectedCustomer?.addresses[0];
-    const defaultBillingAddress = selectedCustomer?.addresses.find((a) => a.isBilling && a.isDefault) || selectedCustomer?.addresses[0];
+
+    const billingAddr = customerBillingAddress ? {
+      line1: customerBillingAddress.addressLine1,
+      line2: customerBillingAddress.addressLine2 || "",
+      city: customerBillingAddress.city,
+      state: customerBillingAddress.state,
+      pincode: customerBillingAddress.pincode,
+    } : undefined;
+
+    const shippingAddr = deliveryTerms === "DELIVERY" && shipTo.line1
+      ? { line1: shipTo.line1, line2: shipTo.line2, city: shipTo.city, state: shipTo.state, pincode: shipTo.pincode }
+      : undefined;
 
     startTransition(async () => {
       const result = await createOrder({
@@ -124,22 +138,11 @@ export default function OrderForm({
         channel,
         notes: notes || undefined,
         giftNote: giftNote || undefined,
-        discountAmount,
-        shippingAmount,
-        shippingAddress: defaultShippingAddress ? {
-          label: defaultShippingAddress.label,
-          addressLine1: defaultShippingAddress.addressLine1,
-          city: defaultShippingAddress.city,
-          state: defaultShippingAddress.state,
-          pincode: defaultShippingAddress.pincode,
-        } : undefined,
-        billingAddress: defaultBillingAddress ? {
-          label: defaultBillingAddress.label,
-          addressLine1: defaultBillingAddress.addressLine1,
-          city: defaultBillingAddress.city,
-          state: defaultBillingAddress.state,
-          pincode: defaultBillingAddress.pincode,
-        } : undefined,
+        deliveryTerms,
+        discountAmount: deliveryTerms === "PICKUP" ? discountAmount : discountAmount,
+        shippingAmount: deliveryTerms === "DELIVERY" ? shippingAmount : 0,
+        shippingAddress: shippingAddr,
+        billingAddress: billingAddr,
         items: items.map((i) => ({
           productId: i.productId,
           description: i.description || undefined,
@@ -197,6 +200,130 @@ export default function OrderForm({
             </select>
           </div>
         </div>
+      </div>
+
+      {/* Delivery Terms */}
+      <div className="bg-card rounded-xl border shadow-sm p-4 sm:p-6 space-y-4">
+        <h2 className="font-semibold">Delivery Terms</h2>
+        <div className="flex gap-4">
+          <label
+            className={`flex-1 flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-colors ${
+              deliveryTerms === "PICKUP" ? "border-primary bg-primary/5" : "border-input hover:border-primary/30"
+            }`}
+          >
+            <input
+              type="radio"
+              name="deliveryTerms"
+              value="PICKUP"
+              checked={deliveryTerms === "PICKUP"}
+              onChange={() => { setDeliveryTerms("PICKUP"); setShippingAmount(0); }}
+              className="sr-only"
+            />
+            <Building2 className={`h-5 w-5 ${deliveryTerms === "PICKUP" ? "text-primary" : "text-muted-foreground"}`} />
+            <div>
+              <p className="font-medium text-sm">Pickup from Facility</p>
+              <p className="text-xs text-muted-foreground">Customer picks up from our location</p>
+            </div>
+          </label>
+          <label
+            className={`flex-1 flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-colors ${
+              deliveryTerms === "DELIVERY" ? "border-primary bg-primary/5" : "border-input hover:border-primary/30"
+            }`}
+          >
+            <input
+              type="radio"
+              name="deliveryTerms"
+              value="DELIVERY"
+              checked={deliveryTerms === "DELIVERY"}
+              onChange={() => setDeliveryTerms("DELIVERY")}
+              className="sr-only"
+            />
+            <Truck className={`h-5 w-5 ${deliveryTerms === "DELIVERY" ? "text-primary" : "text-muted-foreground"}`} />
+            <div>
+              <p className="font-medium text-sm">Delivery at Client Location</p>
+              <p className="text-xs text-muted-foreground">We deliver to the customer</p>
+            </div>
+          </label>
+        </div>
+
+        {customerBillingAddress && (
+          <div className="mt-2 p-3 bg-muted/50 rounded-lg">
+            <p className="text-xs font-medium text-muted-foreground mb-1">Billing Address (from customer profile)</p>
+            <p className="text-sm">
+              {customerBillingAddress.addressLine1}
+              {customerBillingAddress.addressLine2 ? `, ${customerBillingAddress.addressLine2}` : ""}
+              {customerBillingAddress.city ? `, ${customerBillingAddress.city}` : ""}
+              {customerBillingAddress.state ? `, ${customerBillingAddress.state}` : ""}
+              {customerBillingAddress.pincode ? ` - ${customerBillingAddress.pincode}` : ""}
+            </p>
+          </div>
+        )}
+
+        {deliveryTerms === "DELIVERY" && (
+          <div className="space-y-3 pt-2 border-t">
+            <h3 className="text-sm font-medium">Ship-to Address</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-medium mb-1 text-muted-foreground">Address Line 1 *</label>
+                <input
+                  type="text"
+                  value={shipTo.line1}
+                  onChange={(e) => setShipTo({ ...shipTo, line1: e.target.value })}
+                  placeholder="Street address, building"
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-medium mb-1 text-muted-foreground">Address Line 2</label>
+                <input
+                  type="text"
+                  value={shipTo.line2}
+                  onChange={(e) => setShipTo({ ...shipTo, line2: e.target.value })}
+                  placeholder="Area, landmark"
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium mb-1 text-muted-foreground">City</label>
+                <input
+                  type="text"
+                  value={shipTo.city}
+                  onChange={(e) => setShipTo({ ...shipTo, city: e.target.value })}
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium mb-1 text-muted-foreground">State</label>
+                <input
+                  type="text"
+                  value={shipTo.state}
+                  onChange={(e) => setShipTo({ ...shipTo, state: e.target.value })}
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium mb-1 text-muted-foreground">Pincode</label>
+                <input
+                  type="text"
+                  value={shipTo.pincode}
+                  onChange={(e) => setShipTo({ ...shipTo, pincode: e.target.value })}
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium mb-1 text-muted-foreground">Logistics Cost (&#x20B9;)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={shippingAmount}
+                  onChange={(e) => setShippingAmount(parseFloat(e.target.value) || 0)}
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Items */}
@@ -341,17 +468,12 @@ export default function OrderForm({
               <span className="text-muted-foreground">Tax</span>
               <span>{formatCurrency(totalTax.toNumber())}</span>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-muted-foreground">Shipping</span>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={shippingAmount}
-                onChange={(e) => setShippingAmount(parseFloat(e.target.value) || 0)}
-                className="w-28 px-2 py-1 border border-input rounded bg-background text-sm text-right"
-              />
-            </div>
+            {deliveryTerms === "DELIVERY" && shippingAmount > 0 && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Logistics Cost</span>
+                <span>{formatCurrency(shippingAmount)}</span>
+              </div>
+            )}
             <div className="border-t pt-2 flex justify-between font-semibold text-base">
               <span>Grand Total</span>
               <span>{formatCurrency(grandTotal.toNumber())}</span>
