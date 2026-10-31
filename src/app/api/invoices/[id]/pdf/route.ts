@@ -20,6 +20,7 @@ function fmtDate(date: Date | string): string {
 
 function loadImage(relPath: string): string | null {
   try {
+    if (relPath.startsWith("data:")) return relPath;
     const clean = relPath.startsWith("/") ? relPath.slice(1) : relPath;
     const full = path.join(process.cwd(), "public", clean);
     if (!fs.existsSync(full)) return null;
@@ -313,8 +314,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     if (company?.signatureUrl) {
       const sigImg = loadImage(company.signatureUrl);
       if (sigImg) {
-        const sigExt = company.signatureUrl.split(".").pop()?.toLowerCase() || "png";
-        const sigFmt = (sigExt === "jpg" || sigExt === "jpeg") ? "JPEG" : "PNG";
+        const sigFmt = sigImg.includes("image/jpeg") ? "JPEG" : "PNG";
         const sigSize = 18;
         const imgX = col2X + (CW / 4) - sigSize / 2;
         doc.addImage(sigImg, sigFmt, imgX, footY + 6, sigSize, sigSize);
