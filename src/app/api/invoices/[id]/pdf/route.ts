@@ -175,19 +175,39 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     y += 0.5;
 
     // ══════ ITEMS TABLE — separate Rate & Amt columns for GST ══════
-    const heads = isIntra
-      ? [["Sl", "Particulars", "HSN/SAC", "Qty", "Rate", "Taxable\nAmt", "CGST\nRate", "CGST\nAmt", "SGST\nRate", "SGST\nAmt", "Amount"]]
-      : [["Sl", "Particulars", "HSN/SAC", "Qty", "Rate", "Taxable\nAmt", "IGST\nRate", "IGST\nAmt", "Amount"]];
+    const hasAnyDiscount = invoice.items.some(i => new Decimal(i.discount.toString()).gt(0));
+
+    let heads: string[][];
+    if (hasAnyDiscount) {
+      heads = isIntra
+        ? [["Sl", "Particulars", "HSN/SAC", "Qty", "MRP", "Disc/Unit", "Net Rate", "Taxable\nAmt", "CGST\nRate", "CGST\nAmt", "SGST\nRate", "SGST\nAmt", "Amount"]]
+        : [["Sl", "Particulars", "HSN/SAC", "Qty", "MRP", "Disc/Unit", "Net Rate", "Taxable\nAmt", "IGST\nRate", "IGST\nAmt", "Amount"]];
+    } else {
+      heads = isIntra
+        ? [["Sl", "Particulars", "HSN/SAC", "Qty", "Rate", "Taxable\nAmt", "CGST\nRate", "CGST\nAmt", "SGST\nRate", "SGST\nAmt", "Amount"]]
+        : [["Sl", "Particulars", "HSN/SAC", "Qty", "Rate", "Taxable\nAmt", "IGST\nRate", "IGST\nAmt", "Amount"]];
+    }
 
     const rows = invoice.items.map((item, idx) => {
+      const disc = new Decimal(item.discount.toString());
+      const unitPrice = new Decimal(item.unitPrice.toString());
+      const netRate = unitPrice.minus(disc);
+
       const base = [
         String(idx + 1),
         item.description + (item.product?.sku ? `\n${item.product.sku}` : ""),
         item.hsnCode || "",
         new Decimal(item.quantity.toString()).toFixed(2) + (item.product ? " " + getUnitLabel(item.product.unitOfMeasure) : ""),
-        fmt(item.unitPrice),
-        fmt(item.taxableAmount),
       ];
+
+      if (hasAnyDiscount) {
+        base.push(fmt(unitPrice), disc.gt(0) ? fmt(disc) : "-", fmt(netRate));
+      } else {
+        base.push(fmt(unitPrice));
+      }
+
+      base.push(fmt(item.taxableAmount));
+
       if (isIntra) {
         base.push(
           new Decimal(item.cgstRate.toString()).toFixed(1) + "%",
@@ -205,9 +225,16 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       return base;
     });
 
-    const cs: Record<number, { halign?: "right" | "left" | "center"; cellWidth?: number | "auto" }> = isIntra
-      ? { 0: { cellWidth: 7, halign: "center" }, 1: { cellWidth: "auto" }, 2: { cellWidth: 13, halign: "center" }, 3: { halign: "right", cellWidth: 11 }, 4: { halign: "right", cellWidth: 18 }, 5: { halign: "right", cellWidth: 19 }, 6: { halign: "center", cellWidth: 11 }, 7: { halign: "right", cellWidth: 17 }, 8: { halign: "center", cellWidth: 11 }, 9: { halign: "right", cellWidth: 17 }, 10: { halign: "right", cellWidth: 19 } }
-      : { 0: { cellWidth: 7, halign: "center" }, 1: { cellWidth: "auto" }, 2: { cellWidth: 14, halign: "center" }, 3: { halign: "right", cellWidth: 12 }, 4: { halign: "right", cellWidth: 22 }, 5: { halign: "right", cellWidth: 24 }, 6: { halign: "center", cellWidth: 13 }, 7: { halign: "right", cellWidth: 24 }, 8: { halign: "right", cellWidth: 24 } };
+    let cs: Record<number, { halign?: "right" | "left" | "center"; cellWidth?: number | "auto" }>;
+    if (hasAnyDiscount) {
+      cs = isIntra
+        ? { 0: { cellWidth: 6, halign: "center" }, 1: { cellWidth: "auto" }, 2: { cellWidth: 12, halign: "center" }, 3: { halign: "right", cellWidth: 10 }, 4: { halign: "right", cellWidth: 14 }, 5: { halign: "right", cellWidth: 13 }, 6: { halign: "right", cellWidth: 14 }, 7: { halign: "right", cellWidth: 16 }, 8: { halign: "center", cellWidth: 10 }, 9: { halign: "right", cellWidth: 14 }, 10: { halign: "center", cellWidth: 10 }, 11: { halign: "right", cellWidth: 14 }, 12: { halign: "right", cellWidth: 16 } }
+        : { 0: { cellWidth: 7, halign: "center" }, 1: { cellWidth: "auto" }, 2: { cellWidth: 13, halign: "center" }, 3: { halign: "right", cellWidth: 11 }, 4: { halign: "right", cellWidth: 16 }, 5: { halign: "right", cellWidth: 14 }, 6: { halign: "right", cellWidth: 16 }, 7: { halign: "right", cellWidth: 18 }, 8: { halign: "center", cellWidth: 12 }, 9: { halign: "right", cellWidth: 18 }, 10: { halign: "right", cellWidth: 18 } };
+    } else {
+      cs = isIntra
+        ? { 0: { cellWidth: 7, halign: "center" }, 1: { cellWidth: "auto" }, 2: { cellWidth: 13, halign: "center" }, 3: { halign: "right", cellWidth: 11 }, 4: { halign: "right", cellWidth: 18 }, 5: { halign: "right", cellWidth: 19 }, 6: { halign: "center", cellWidth: 11 }, 7: { halign: "right", cellWidth: 17 }, 8: { halign: "center", cellWidth: 11 }, 9: { halign: "right", cellWidth: 17 }, 10: { halign: "right", cellWidth: 19 } }
+        : { 0: { cellWidth: 7, halign: "center" }, 1: { cellWidth: "auto" }, 2: { cellWidth: 14, halign: "center" }, 3: { halign: "right", cellWidth: 12 }, 4: { halign: "right", cellWidth: 22 }, 5: { halign: "right", cellWidth: 24 }, 6: { halign: "center", cellWidth: 13 }, 7: { halign: "right", cellWidth: 24 }, 8: { halign: "right", cellWidth: 24 } };
+    }
 
     autoTable(doc, {
       startY: y,
@@ -254,7 +281,17 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     doc.line(totLabelX - 3, y, totLabelX - 3, y + 30);
 
     totRow("Subtotal", fmt(invoice.subtotal));
-    if (new Decimal(invoice.discountAmount.toString()).gt(0)) totRow("Less: Discount", fmt(invoice.discountAmount));
+    if (hasAnyDiscount) {
+      const totalLineDiscount = invoice.items.reduce((sum, i) => {
+        const qty = new Decimal(i.quantity.toString());
+        const d = new Decimal(i.discount.toString());
+        return sum.plus(qty.mul(d));
+      }, new Decimal(0));
+      if (totalLineDiscount.gt(0)) {
+        totRow("Discount", "- Rs. " + fmt(totalLineDiscount));
+      }
+    }
+    if (new Decimal(invoice.discountAmount.toString()).gt(0)) totRow("Addl. Discount", "- Rs. " + fmt(invoice.discountAmount));
     if (isIntra) { totRow("CGST", fmt(invoice.cgstAmount)); totRow("SGST", fmt(invoice.sgstAmount)); }
     else { totRow("IGST", fmt(invoice.igstAmount)); }
     if (new Decimal(invoice.shippingAmount.toString()).gt(0)) totRow("Shipping", fmt(invoice.shippingAmount));
