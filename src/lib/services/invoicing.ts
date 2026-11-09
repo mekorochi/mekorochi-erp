@@ -92,6 +92,7 @@ export function calculateInvoiceTotals(
 export async function createInvoice(
   data: {
     type: "PROFORMA" | "TAX_INVOICE" | "CREDIT_NOTE" | "DEBIT_NOTE";
+    invoiceMode?: "GST" | "NON_GST";
     customerId: string;
     orderId?: string;
     dueDate: Date;
@@ -109,19 +110,25 @@ export async function createInvoice(
   }
 ) {
   const settings = await prisma.companySettings.findFirst();
-  const prefix = data.type === "CREDIT_NOTE"
-    ? (settings?.creditNotePrefix || "CN")
-    : data.type === "DEBIT_NOTE"
-      ? (settings?.debitNotePrefix || "DN")
-      : (settings?.invoicePrefix || "INV");
+  const mode = data.invoiceMode || "GST";
+  const prefix = mode === "NON_GST"
+    ? (settings?.nonGstInvoicePrefix || "BOS")
+    : data.type === "CREDIT_NOTE"
+      ? (settings?.creditNotePrefix || "CN")
+      : data.type === "DEBIT_NOTE"
+        ? (settings?.debitNotePrefix || "DN")
+        : (settings?.invoicePrefix || "INV");
 
   const fy = getCurrentFiscalYear(settings?.financialYearStart || 4);
   const invoiceNumber = await getNextSequence(`invoice_${data.type}`, prefix, fy);
 
-  const calculatedItems = data.items.map(item => ({
-    ...item,
-    ...calculateInvoiceItem(item, data.isInterState),
-  }));
+  const calculatedItems = data.items.map(item => {
+    const forCalc = mode === "NON_GST" ? { ...item, taxRate: 0 } : item;
+    return {
+      ...item,
+      ...calculateInvoiceItem(forCalc, data.isInterState),
+    };
+  });
 
   const totals = calculateInvoiceTotals(
     calculatedItems,
@@ -133,6 +140,7 @@ export async function createInvoice(
     data: {
       invoiceNumber,
       type: data.type,
+      invoiceMode: mode,
       customerId: data.customerId,
       orderId: data.orderId,
       status: "DRAFT",

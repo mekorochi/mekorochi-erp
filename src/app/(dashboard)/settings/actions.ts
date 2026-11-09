@@ -37,6 +37,16 @@ export async function updateCompanySettings(formData: FormData) {
     bankBranch: formData.get("bankBranch") as string || null,
     upiId: formData.get("upiId") as string || null,
     signatureUrl: formData.get("signatureUrl") as string || null,
+    nonGstSellerName: formData.get("nonGstSellerName") as string || null,
+    nonGstAddressLine1: formData.get("nonGstAddressLine1") as string || null,
+    nonGstAddressLine2: formData.get("nonGstAddressLine2") as string || null,
+    nonGstCity: formData.get("nonGstCity") as string || null,
+    nonGstState: formData.get("nonGstState") as string || null,
+    nonGstPincode: formData.get("nonGstPincode") as string || null,
+    nonGstPan: formData.get("nonGstPan") as string || null,
+    nonGstPhone: formData.get("nonGstPhone") as string || null,
+    nonGstEmail: formData.get("nonGstEmail") as string || null,
+    nonGstInvoicePrefix: (formData.get("nonGstInvoicePrefix") as string) || undefined,
   };
 
   if (!data.companyName) return { error: "Company name is required" };

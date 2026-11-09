@@ -12,6 +12,7 @@ export const invoiceItemSchema = z.object({
 
 export const invoiceSchema = z.object({
   type: z.enum(["PROFORMA", "TAX_INVOICE", "CREDIT_NOTE", "DEBIT_NOTE"]).default("TAX_INVOICE"),
+  invoiceMode: z.enum(["GST", "NON_GST"]).default("GST"),
   customerId: z.string().min(1, "Customer is required"),
   orderId: z.string().optional(),
   dueDate: z.coerce.date(),

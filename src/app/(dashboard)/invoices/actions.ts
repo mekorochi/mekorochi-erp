@@ -16,6 +16,7 @@ export async function createInvoiceAction(_prev: unknown, formData: FormData) {
 
     const invoice = await createInvoiceService({
       type: parsed.type,
+      invoiceMode: parsed.invoiceMode,
       customerId: parsed.customerId,
       orderId: parsed.orderId,
       dueDate: new Date(parsed.dueDate),

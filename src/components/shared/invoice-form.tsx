@@ -76,6 +76,7 @@ export default function InvoiceForm({
   initialData?: any;
 }) {
   const router = useRouter();
+  const [invoiceMode, setInvoiceMode] = useState<"GST" | "NON_GST">(initialData?.invoiceMode || "GST");
   const [type, setType] = useState(initialData?.type || "TAX_INVOICE");
   const [customerId, setCustomerId] = useState(initialData?.customerId || "");
   const [dueDate, setDueDate] = useState(initialData?.dueDate || new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0]);
@@ -168,6 +169,7 @@ export default function InvoiceForm({
   const handleSubmit = async (_prev: unknown, formData: FormData) => {
     const data = {
       type,
+      invoiceMode,
       customerId,
       dueDate,
       placeOfSupply: placeOfSupply || billingAddress?.state || "",
@@ -184,11 +186,11 @@ export default function InvoiceForm({
       items: items.map((item) => ({
         productId: item.productId || undefined,
         description: item.description,
-        hsnCode: item.hsnCode || undefined,
+        hsnCode: invoiceMode === "GST" ? (item.hsnCode || undefined) : undefined,
         quantity: parseFloat(item.quantity || "0"),
         unitPrice: parseFloat(item.unitPrice || "0"),
         discount: parseFloat(item.discount || "0"),
-        taxRate: parseFloat(item.taxRate || "0"),
+        taxRate: invoiceMode === "NON_GST" ? 0 : parseFloat(item.taxRate || "0"),
       })),
     };
 
@@ -211,16 +213,45 @@ export default function InvoiceForm({
         </div>
       )}
 
+      {/* Invoice Mode Selection */}
+      <div className="grid grid-cols-2 gap-4">
+        <button
+          type="button"
+          onClick={() => setInvoiceMode("GST")}
+          className={`rounded-xl border-2 p-4 text-left transition-all ${invoiceMode === "GST" ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-muted hover:border-muted-foreground/30"}`}
+        >
+          <p className="font-semibold text-sm">GST Invoice</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Tax invoice with GSTIN, CGST/SGST/IGST breakup</p>
+        </button>
+        <button
+          type="button"
+          onClick={() => setInvoiceMode("NON_GST")}
+          className={`rounded-xl border-2 p-4 text-left transition-all ${invoiceMode === "NON_GST" ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-muted hover:border-muted-foreground/30"}`}
+        >
+          <p className="font-semibold text-sm">Non-GST Invoice</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Bill of supply with PAN, no tax breakup</p>
+        </button>
+      </div>
+
       {/* Header Fields */}
       <div className="rounded-xl border bg-card p-4 sm:p-6 space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
             <label className="block text-sm font-medium mb-1">Type</label>
             <select value={type} onChange={(e) => setType(e.target.value)} className="w-full rounded-lg border bg-background px-3 py-2 text-sm">
-              <option value="TAX_INVOICE">Tax Invoice</option>
-              <option value="PROFORMA">Proforma Invoice</option>
-              <option value="CREDIT_NOTE">Credit Note</option>
-              <option value="DEBIT_NOTE">Debit Note</option>
+              {invoiceMode === "GST" ? (
+                <>
+                  <option value="TAX_INVOICE">Tax Invoice</option>
+                  <option value="PROFORMA">Proforma Invoice</option>
+                  <option value="CREDIT_NOTE">Credit Note</option>
+                  <option value="DEBIT_NOTE">Debit Note</option>
+                </>
+              ) : (
+                <>
+                  <option value="TAX_INVOICE">Bill of Supply</option>
+                  <option value="PROFORMA">Proforma</option>
+                </>
+              )}
             </select>
           </div>
           <div>
@@ -250,19 +281,27 @@ export default function InvoiceForm({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            id="interState"
-            checked={isInterState}
-            onChange={(e) => setIsInterState(e.target.checked)}
-            className="h-4 w-4 rounded border-gray-300"
-          />
-          <label htmlFor="interState" className="text-sm">Inter-state supply (IGST instead of CGST+SGST)</label>
-        </div>
+        {invoiceMode === "GST" && (
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="interState"
+              checked={isInterState}
+              onChange={(e) => setIsInterState(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300"
+            />
+            <label htmlFor="interState" className="text-sm">Inter-state supply (IGST instead of CGST+SGST)</label>
+          </div>
+        )}
 
-        {selectedCustomer?.gstin && (
+        {selectedCustomer?.gstin && invoiceMode === "GST" && (
           <p className="text-sm text-muted-foreground">Customer GSTIN: <span className="font-mono">{selectedCustomer.gstin}</span></p>
+        )}
+
+        {invoiceMode === "NON_GST" && (
+          <div className="rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+            Non-GST invoice — taxes will not be applied. Seller PAN will appear instead of GSTIN.
+          </div>
         )}
       </div>
 
@@ -327,10 +366,12 @@ export default function InvoiceForm({
                   <label className="block text-xs text-muted-foreground mb-1">Discount</label>
                   <input type="number" step="0.01" min="0" value={item.discount} onChange={(e) => updateItem(idx, "discount", e.target.value)} className="w-full rounded-lg border bg-background px-3 py-2 text-sm" />
                 </div>
-                <div>
-                  <label className="block text-xs text-muted-foreground mb-1">Tax %</label>
-                  <input type="number" step="0.01" min="0" max="100" value={item.taxRate} onChange={(e) => updateItem(idx, "taxRate", e.target.value)} className="w-full rounded-lg border bg-background px-3 py-2 text-sm" />
-                </div>
+                {invoiceMode === "GST" && (
+                  <div>
+                    <label className="block text-xs text-muted-foreground mb-1">Tax %</label>
+                    <input type="number" step="0.01" min="0" max="100" value={item.taxRate} onChange={(e) => updateItem(idx, "taxRate", e.target.value)} className="w-full rounded-lg border bg-background px-3 py-2 text-sm" />
+                  </div>
+                )}
                 <div>
                   <label className="block text-xs text-muted-foreground mb-1">Total</label>
                   <p className="px-3 py-2 text-sm font-medium">{formatCurrency(recalcItems[idx]?.total || "0")}</p>
@@ -338,17 +379,19 @@ export default function InvoiceForm({
               </div>
 
               {/* Tax breakdown for this item */}
-              <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-                <span>Taxable: {formatCurrency(recalcItems[idx]?.taxableAmount || "0")}</span>
-                {!isInterState ? (
-                  <>
-                    <span>CGST: {formatCurrency(recalcItems[idx]?.cgst || "0")}</span>
-                    <span>SGST: {formatCurrency(recalcItems[idx]?.sgst || "0")}</span>
-                  </>
-                ) : (
-                  <span>IGST: {formatCurrency(recalcItems[idx]?.igst || "0")}</span>
-                )}
-              </div>
+              {invoiceMode === "GST" && (
+                <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                  <span>Taxable: {formatCurrency(recalcItems[idx]?.taxableAmount || "0")}</span>
+                  {!isInterState ? (
+                    <>
+                      <span>CGST: {formatCurrency(recalcItems[idx]?.cgst || "0")}</span>
+                      <span>SGST: {formatCurrency(recalcItems[idx]?.sgst || "0")}</span>
+                    </>
+                  ) : (
+                    <span>IGST: {formatCurrency(recalcItems[idx]?.igst || "0")}</span>
+                  )}
+                </div>
+              )}
             </div>
           ))}
 
@@ -377,22 +420,24 @@ export default function InvoiceForm({
             <span className="text-muted-foreground">Subtotal</span>
             <span className="font-medium">{formatCurrency(subtotal)}</span>
           </div>
-          {!isInterState ? (
-            <>
+          {invoiceMode === "GST" && (
+            !isInterState ? (
+              <>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">CGST</span>
+                  <span>{formatCurrency(totalCgst)}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">SGST</span>
+                  <span>{formatCurrency(totalSgst)}</span>
+                </div>
+              </>
+            ) : (
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">CGST</span>
-                <span>{formatCurrency(totalCgst)}</span>
+                <span className="text-muted-foreground">IGST</span>
+                <span>{formatCurrency(totalIgst)}</span>
               </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">SGST</span>
-                <span>{formatCurrency(totalSgst)}</span>
-              </div>
-            </>
-          ) : (
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">IGST</span>
-              <span>{formatCurrency(totalIgst)}</span>
-            </div>
+            )
           )}
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Shipping</span>

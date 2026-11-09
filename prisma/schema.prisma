@@ -115,6 +115,16 @@ model CompanySettings {
   upiId             String?
   logoUrl           String?
   signatureUrl      String?
+  nonGstSellerName    String?
+  nonGstAddressLine1  String?
+  nonGstAddressLine2  String?
+  nonGstCity          String?
+  nonGstState         String?
+  nonGstPincode       String?
+  nonGstPan           String?
+  nonGstPhone         String?
+  nonGstEmail         String?
+  nonGstInvoicePrefix String   @default("BOS")
   invoicePrefix     String   @default("INV")
   orderPrefix       String   @default("ORD")
   quotePrefix       String   @default("QUO")
@@ -1001,6 +1011,7 @@ model Invoice {
   id              String        @id @default(cuid())
   invoiceNumber   String        @unique
   type            InvoiceType   @default(TAX_INVOICE)
+  invoiceMode     String        @default("GST")
   customerId      String
   customer        Customer      @relation(fields: [customerId], references: [id])
   orderId         String?

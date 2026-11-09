@@ -46,6 +46,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
     if (!invoice) return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
 
+    const isNonGst = invoice.invoiceMode === "NON_GST";
     const isIntra = !invoice.isInterState;
     const billing = invoice.billingAddress as Record<string, string> | null;
     const shipping = invoice.shippingAddress as Record<string, string> | null;
@@ -87,22 +88,35 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
     doc.setFontSize(7);
     doc.setFont("helvetica", "normal");
-    if (company?.legalName) { doc.text(company.legalName, W / 2, y, { align: "center" }); y += 3.5; }
-    const addr = [company?.addressLine1, company?.addressLine2, company?.city, company?.state, company?.pincode].filter(Boolean).join(", ");
-    if (addr) { doc.text(addr, W / 2, y, { align: "center" }); y += 3.5; }
-    const contact = [company?.phone ? `Ph: ${company.phone}` : null, company?.email].filter(Boolean).join(" | ");
-    if (contact) { doc.text(contact, W / 2, y, { align: "center" }); y += 3.5; }
-    const ids = [company?.gstin ? `GSTIN: ${company.gstin}` : null, company?.pan ? `PAN: ${company.pan}` : null, company?.fssaiNumber ? `FSSAI: ${company.fssaiNumber}` : null].filter(Boolean).join("  |  ");
-    if (ids) { doc.setFont("helvetica", "bold"); doc.setFontSize(6.5); doc.text(ids, W / 2, y, { align: "center" }); y += 3; }
+
+    if (isNonGst) {
+      const ngName = company?.nonGstSellerName;
+      if (ngName) { doc.setFont("helvetica", "bold"); doc.text(ngName, W / 2, y, { align: "center" }); doc.setFont("helvetica", "normal"); y += 3.5; }
+      const ngAddr = [company?.nonGstAddressLine1, company?.nonGstAddressLine2, company?.nonGstCity, company?.nonGstState, company?.nonGstPincode].filter(Boolean).join(", ");
+      if (ngAddr) { doc.text(ngAddr, W / 2, y, { align: "center" }); y += 3.5; }
+      const ngContact = [company?.nonGstPhone ? `Ph: ${company.nonGstPhone}` : null, company?.nonGstEmail].filter(Boolean).join(" | ");
+      if (ngContact) { doc.text(ngContact, W / 2, y, { align: "center" }); y += 3.5; }
+      if (company?.nonGstPan) { doc.setFont("helvetica", "bold"); doc.setFontSize(6.5); doc.text(`PAN: ${company.nonGstPan}`, W / 2, y, { align: "center" }); y += 3; }
+    } else {
+      if (company?.legalName) { doc.text(company.legalName, W / 2, y, { align: "center" }); y += 3.5; }
+      const addr = [company?.addressLine1, company?.addressLine2, company?.city, company?.state, company?.pincode].filter(Boolean).join(", ");
+      if (addr) { doc.text(addr, W / 2, y, { align: "center" }); y += 3.5; }
+      const contact = [company?.phone ? `Ph: ${company.phone}` : null, company?.email].filter(Boolean).join(" | ");
+      if (contact) { doc.text(contact, W / 2, y, { align: "center" }); y += 3.5; }
+      const ids = [company?.gstin ? `GSTIN: ${company.gstin}` : null, company?.pan ? `PAN: ${company.pan}` : null, company?.fssaiNumber ? `FSSAI: ${company.fssaiNumber}` : null].filter(Boolean).join("  |  ");
+      if (ids) { doc.setFont("helvetica", "bold"); doc.setFontSize(6.5); doc.text(ids, W / 2, y, { align: "center" }); y += 3; }
+    }
 
     doc.line(M, y, R, y);
     y += 1;
 
     // ══════ INVOICE TITLE ══════
     const types: Record<string, string> = { TAX_INVOICE: "Tax Invoice", PROFORMA: "Proforma Invoice", CREDIT_NOTE: "Credit Note", DEBIT_NOTE: "Debit Note" };
+    const nonGstTypes: Record<string, string> = { TAX_INVOICE: "Bill of Supply", PROFORMA: "Proforma" };
+    const titleMap = isNonGst ? nonGstTypes : types;
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
-    doc.text(types[invoice.type] || invoice.type, W / 2, y + 5, { align: "center" });
+    doc.text(titleMap[invoice.type] || invoice.type, W / 2, y + 5, { align: "center" });
     y += 7;
     doc.line(M, y, R, y);
     y += 1;
@@ -126,7 +140,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     if (invoice.order) metaLabel("Order Ref.", invoice.order.orderNumber, col2X + 2, colonX2, metaY + 8);
 
     let metaEndY = metaY + 10;
-    if (invoice.placeOfSupply) {
+    if (invoice.placeOfSupply && !isNonGst) {
       metaLabel("Place of Supply", invoice.placeOfSupply + (invoice.isInterState ? " (Inter-State)" : ""), M + 2, colonX, metaY + 12);
       metaEndY = metaY + 14;
     }
@@ -156,7 +170,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         bY += (addrLines.length - 1) * 3.5;
       }
     }
-    if (invoice.customer.gstin) { bY += 3.5; doc.setFont("helvetica", "bold"); doc.text(`GSTIN: ${invoice.customer.gstin}`, M + 2, bY); }
+    if (invoice.customer.gstin && !isNonGst) { bY += 3.5; doc.setFont("helvetica", "bold"); doc.text(`GSTIN: ${invoice.customer.gstin}`, M + 2, bY); }
     if (invoice.customer.email) { bY += 3.5; doc.setFont("helvetica", "normal"); doc.text(invoice.customer.email, M + 2, bY); }
 
     if (shipping) {
@@ -174,18 +188,34 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     doc.line(M, y, R, y);
     y += 0.5;
 
-    // ══════ ITEMS TABLE — separate Rate & Amt columns for GST ══════
+    // ══════ ITEMS TABLE ══════
     const hasAnyDiscount = invoice.items.some(i => new Decimal(i.discount.toString()).gt(0));
 
     let heads: string[][];
-    if (hasAnyDiscount) {
+    let cs: Record<number, { halign?: "right" | "left" | "center"; cellWidth?: number | "auto" }>;
+
+    if (isNonGst) {
+      if (hasAnyDiscount) {
+        heads = [["Sl", "Particulars", "Qty", "MRP", "Disc/Unit", "Net Rate", "Amount"]];
+        cs = { 0: { cellWidth: 8, halign: "center" }, 1: { cellWidth: "auto" }, 2: { halign: "right", cellWidth: 16 }, 3: { halign: "right", cellWidth: 22 }, 4: { halign: "right", cellWidth: 20 }, 5: { halign: "right", cellWidth: 22 }, 6: { halign: "right", cellWidth: 24 } };
+      } else {
+        heads = [["Sl", "Particulars", "Qty", "Rate", "Discount", "Amount"]];
+        cs = { 0: { cellWidth: 8, halign: "center" }, 1: { cellWidth: "auto" }, 2: { halign: "right", cellWidth: 18 }, 3: { halign: "right", cellWidth: 28 }, 4: { halign: "right", cellWidth: 24 }, 5: { halign: "right", cellWidth: 28 } };
+      }
+    } else if (hasAnyDiscount) {
       heads = isIntra
         ? [["Sl", "Particulars", "HSN/SAC", "Qty", "MRP", "Disc/Unit", "Net Rate", "Taxable\nAmt", "CGST\nRate", "CGST\nAmt", "SGST\nRate", "SGST\nAmt", "Amount"]]
         : [["Sl", "Particulars", "HSN/SAC", "Qty", "MRP", "Disc/Unit", "Net Rate", "Taxable\nAmt", "IGST\nRate", "IGST\nAmt", "Amount"]];
+      cs = isIntra
+        ? { 0: { cellWidth: 6, halign: "center" }, 1: { cellWidth: "auto" }, 2: { cellWidth: 12, halign: "center" }, 3: { halign: "right", cellWidth: 10 }, 4: { halign: "right", cellWidth: 14 }, 5: { halign: "right", cellWidth: 13 }, 6: { halign: "right", cellWidth: 14 }, 7: { halign: "right", cellWidth: 16 }, 8: { halign: "center", cellWidth: 10 }, 9: { halign: "right", cellWidth: 14 }, 10: { halign: "center", cellWidth: 10 }, 11: { halign: "right", cellWidth: 14 }, 12: { halign: "right", cellWidth: 16 } }
+        : { 0: { cellWidth: 7, halign: "center" }, 1: { cellWidth: "auto" }, 2: { cellWidth: 13, halign: "center" }, 3: { halign: "right", cellWidth: 11 }, 4: { halign: "right", cellWidth: 16 }, 5: { halign: "right", cellWidth: 14 }, 6: { halign: "right", cellWidth: 16 }, 7: { halign: "right", cellWidth: 18 }, 8: { halign: "center", cellWidth: 12 }, 9: { halign: "right", cellWidth: 18 }, 10: { halign: "right", cellWidth: 18 } };
     } else {
       heads = isIntra
         ? [["Sl", "Particulars", "HSN/SAC", "Qty", "Rate", "Taxable\nAmt", "CGST\nRate", "CGST\nAmt", "SGST\nRate", "SGST\nAmt", "Amount"]]
         : [["Sl", "Particulars", "HSN/SAC", "Qty", "Rate", "Taxable\nAmt", "IGST\nRate", "IGST\nAmt", "Amount"]];
+      cs = isIntra
+        ? { 0: { cellWidth: 7, halign: "center" }, 1: { cellWidth: "auto" }, 2: { cellWidth: 13, halign: "center" }, 3: { halign: "right", cellWidth: 11 }, 4: { halign: "right", cellWidth: 18 }, 5: { halign: "right", cellWidth: 19 }, 6: { halign: "center", cellWidth: 11 }, 7: { halign: "right", cellWidth: 17 }, 8: { halign: "center", cellWidth: 11 }, 9: { halign: "right", cellWidth: 17 }, 10: { halign: "right", cellWidth: 19 } }
+        : { 0: { cellWidth: 7, halign: "center" }, 1: { cellWidth: "auto" }, 2: { cellWidth: 14, halign: "center" }, 3: { halign: "right", cellWidth: 12 }, 4: { halign: "right", cellWidth: 22 }, 5: { halign: "right", cellWidth: 24 }, 6: { halign: "center", cellWidth: 13 }, 7: { halign: "right", cellWidth: 24 }, 8: { halign: "right", cellWidth: 24 } };
     }
 
     const rows = invoice.items.map((item, idx) => {
@@ -194,12 +224,24 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       const discPerUnit = qty.gt(0) ? flatDisc.div(qty).toDecimalPlaces(2) : new Decimal(0);
       const unitPrice = new Decimal(item.unitPrice.toString());
       const netRate = unitPrice.minus(discPerUnit);
+      const qtyStr = qty.toFixed(2) + (item.product ? " " + getUnitLabel(item.product.unitOfMeasure) : "");
+
+      if (isNonGst) {
+        const row = [String(idx + 1), item.description, qtyStr];
+        if (hasAnyDiscount) {
+          row.push(fmt(unitPrice), discPerUnit.gt(0) ? fmt(discPerUnit) : "-", fmt(netRate));
+        } else {
+          row.push(fmt(unitPrice), flatDisc.gt(0) ? fmt(flatDisc) : "-");
+        }
+        row.push(fmt(item.totalAmount));
+        return row;
+      }
 
       const base = [
         String(idx + 1),
         item.description,
         item.hsnCode || "",
-        qty.toFixed(2) + (item.product ? " " + getUnitLabel(item.product.unitOfMeasure) : ""),
+        qtyStr,
       ];
 
       if (hasAnyDiscount) {
@@ -226,17 +268,6 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       base.push(fmt(item.totalAmount));
       return base;
     });
-
-    let cs: Record<number, { halign?: "right" | "left" | "center"; cellWidth?: number | "auto" }>;
-    if (hasAnyDiscount) {
-      cs = isIntra
-        ? { 0: { cellWidth: 6, halign: "center" }, 1: { cellWidth: "auto" }, 2: { cellWidth: 12, halign: "center" }, 3: { halign: "right", cellWidth: 10 }, 4: { halign: "right", cellWidth: 14 }, 5: { halign: "right", cellWidth: 13 }, 6: { halign: "right", cellWidth: 14 }, 7: { halign: "right", cellWidth: 16 }, 8: { halign: "center", cellWidth: 10 }, 9: { halign: "right", cellWidth: 14 }, 10: { halign: "center", cellWidth: 10 }, 11: { halign: "right", cellWidth: 14 }, 12: { halign: "right", cellWidth: 16 } }
-        : { 0: { cellWidth: 7, halign: "center" }, 1: { cellWidth: "auto" }, 2: { cellWidth: 13, halign: "center" }, 3: { halign: "right", cellWidth: 11 }, 4: { halign: "right", cellWidth: 16 }, 5: { halign: "right", cellWidth: 14 }, 6: { halign: "right", cellWidth: 16 }, 7: { halign: "right", cellWidth: 18 }, 8: { halign: "center", cellWidth: 12 }, 9: { halign: "right", cellWidth: 18 }, 10: { halign: "right", cellWidth: 18 } };
-    } else {
-      cs = isIntra
-        ? { 0: { cellWidth: 7, halign: "center" }, 1: { cellWidth: "auto" }, 2: { cellWidth: 13, halign: "center" }, 3: { halign: "right", cellWidth: 11 }, 4: { halign: "right", cellWidth: 18 }, 5: { halign: "right", cellWidth: 19 }, 6: { halign: "center", cellWidth: 11 }, 7: { halign: "right", cellWidth: 17 }, 8: { halign: "center", cellWidth: 11 }, 9: { halign: "right", cellWidth: 17 }, 10: { halign: "right", cellWidth: 19 } }
-        : { 0: { cellWidth: 7, halign: "center" }, 1: { cellWidth: "auto" }, 2: { cellWidth: 14, halign: "center" }, 3: { halign: "right", cellWidth: 12 }, 4: { halign: "right", cellWidth: 22 }, 5: { halign: "right", cellWidth: 24 }, 6: { halign: "center", cellWidth: 13 }, 7: { halign: "right", cellWidth: 24 }, 8: { halign: "right", cellWidth: 24 } };
-    }
 
     autoTable(doc, {
       startY: y,
@@ -292,8 +323,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       }
     }
     if (new Decimal(invoice.discountAmount.toString()).gt(0)) totRow("Addl. Discount", "- Rs. " + fmt(invoice.discountAmount));
-    if (isIntra) { totRow("CGST", fmt(invoice.cgstAmount)); totRow("SGST", fmt(invoice.sgstAmount)); }
-    else { totRow("IGST", fmt(invoice.igstAmount)); }
+    if (!isNonGst) {
+      if (isIntra) { totRow("CGST", fmt(invoice.cgstAmount)); totRow("SGST", fmt(invoice.sgstAmount)); }
+      else { totRow("IGST", fmt(invoice.igstAmount)); }
+    }
     if (new Decimal(invoice.shippingAmount.toString()).gt(0)) totRow("Shipping", fmt(invoice.shippingAmount));
     if (!new Decimal(invoice.roundOff.toString()).isZero()) totRow("Round Off", (new Decimal(invoice.roundOff.toString()).gt(0) ? "+" : "") + new Decimal(invoice.roundOff.toString()).toFixed(2));
 

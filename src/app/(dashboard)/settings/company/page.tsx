@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Save, Building2, Landmark, CreditCard, Factory, PenTool, Upload, X } from "lucide-react";
+import { ArrowLeft, Save, Building2, Landmark, CreditCard, Factory, PenTool, Upload, X, FileText } from "lucide-react";
 import Link from "next/link";
 import { updateCompanySettings } from "../actions";
 
@@ -154,6 +154,35 @@ export default function CompanySettingsPage() {
               {field("fssaiNumber", "FSSAI License Number")}
               {field("cin", "CIN")}
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <FileText className="h-4 w-4" /> Non-GST / Bill of Supply Seller
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              These details appear on Non-GST invoices (Bill of Supply) instead of the registered business details above.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {field("nonGstSellerName", "Seller Name", "MEKOROCHI")}
+              {field("nonGstInvoicePrefix", "Invoice Prefix", "BOS")}
+            </div>
+            {field("nonGstAddressLine1", "Address Line 1")}
+            {field("nonGstAddressLine2", "Address Line 2")}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {field("nonGstCity", "City", "Ahmedabad")}
+              {field("nonGstState", "State", "Gujarat")}
+              {field("nonGstPincode", "Pincode")}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {field("nonGstPan", "PAN")}
+              {field("nonGstPhone", "Phone")}
+            </div>
+            {field("nonGstEmail", "Email")}
           </CardContent>
         </Card>
 
