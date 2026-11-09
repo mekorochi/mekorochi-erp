@@ -171,6 +171,7 @@ export default function InvoiceForm({
       type,
       invoiceMode,
       customerId,
+      orderId: initialData?.orderId || undefined,
       dueDate,
       placeOfSupply: placeOfSupply || billingAddress?.state || "",
       isInterState,
