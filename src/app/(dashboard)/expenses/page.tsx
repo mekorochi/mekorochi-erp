@@ -66,6 +66,14 @@ export default async function ExpensesPage({
   ]);
   const distinctPaidBy = paidByValues.map((v) => v.paidBy).filter(Boolean) as string[];
 
+  const paidByTotal = params.paidBy
+    ? await prisma.expense.aggregate({
+        where: { paidBy: params.paidBy },
+        _sum: { totalAmount: true },
+        _count: true,
+      })
+    : null;
+
   const totalPages = Math.ceil(total / perPage);
 
   return (
@@ -138,6 +146,20 @@ export default async function ExpensesPage({
           Filter
         </button>
       </form>
+
+      {paidByTotal && params.paidBy && (
+        <div className="rounded-xl border bg-card p-4 flex items-center justify-between">
+          <div>
+            <p className="text-sm text-muted-foreground">
+              Total paid by <span className="font-semibold text-foreground">{params.paidBy}</span>
+            </p>
+            <p className="text-2xl font-semibold mt-0.5">{formatCurrency(paidByTotal._sum.totalAmount || 0)}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-sm text-muted-foreground">{paidByTotal._count} expense{paidByTotal._count !== 1 ? "s" : ""}</p>
+          </div>
+        </div>
+      )}
 
       {expenses.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
