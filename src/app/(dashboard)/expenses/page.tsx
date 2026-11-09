@@ -4,6 +4,7 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import Link from "next/link";
 import { Plus, Wallet } from "lucide-react";
 import Decimal from "decimal.js";
+import { ExpenseBulkUpload } from "@/components/shared/expense-bulk-upload";
 
 const statusConfig: Record<string, { label: string; className: string }> = {
   PENDING: { label: "Pending", className: "bg-amber-100 text-amber-800" },
@@ -82,6 +83,8 @@ export default async function ExpensesPage({
           Add Expense
         </Link>
       </div>
+
+      <ExpenseBulkUpload />
 
       {/* Summary */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
