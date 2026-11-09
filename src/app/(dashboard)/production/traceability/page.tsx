@@ -11,10 +11,10 @@ async function getTraceabilityData(lotNumber: string) {
   });
   if (!lot) return null;
 
-  const product = await prisma.product.findUnique({
+  const product = lot.productId ? await prisma.product.findUnique({
     where: { id: lot.productId },
     select: { name: true, sku: true, type: true },
-  });
+  }) : null;
 
   const movements = await prisma.stockMovement.findMany({
     where: { lotId: lot.id },
@@ -69,14 +69,14 @@ async function getTraceabilityData(lotNumber: string) {
       const sourceLot = await prisma.stockLot.findUnique({
         where: { id: cm.lotId! },
       });
-      const sourceProduct = await prisma.product.findUnique({
+      const sourceProduct = cm.productId ? await prisma.product.findUnique({
         where: { id: cm.productId },
         select: { name: true },
-      });
+      }) : null;
       if (sourceLot) {
         sourceLots.push({
           lotNumber: sourceLot.lotNumber,
-          productName: sourceProduct?.name || "",
+          productName: cm.itemName || sourceProduct?.name || "",
           quantity: Math.abs(parseFloat(cm.quantity.toString())).toString(),
         });
       }
@@ -152,7 +152,7 @@ export default async function TraceabilityPage({
                   </span>
                 </div>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {data.product?.name} ({data.product?.sku})
+                  {data.lot.itemName || data.product?.name}{data.product?.sku ? ` (${data.product.sku})` : ""}
                 </p>
               </div>
               <div className="text-sm space-y-1">

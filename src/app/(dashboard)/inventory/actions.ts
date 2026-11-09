@@ -13,9 +13,10 @@ export async function adjustStock(_prev: unknown, formData: FormData) {
   const user = await requirePermission("inventory:adjust");
 
   const raw = {
-    productId: formData.get("productId") as string,
+    itemName: formData.get("itemName") as string,
     warehouseId: formData.get("warehouseId") as string,
     quantity: formData.get("quantity") as string,
+    unit: formData.get("unit") as string || "kg",
     reason: formData.get("reason") as string,
     lotNumber: formData.get("lotNumber") as string || undefined,
     expiryDate: formData.get("expiryDate") as string || undefined,
@@ -35,7 +36,7 @@ export async function adjustStock(_prev: unknown, formData: FormData) {
   try {
     if (data.lotNumber && isPositive) {
       await createLotAndReceive({
-        productId: data.productId,
+        itemName: data.itemName,
         warehouseId: data.warehouseId,
         quantity: qty.abs().toFixed(3),
         costPerUnit: "0",
@@ -50,7 +51,7 @@ export async function adjustStock(_prev: unknown, formData: FormData) {
     } else {
       await createStockMovement({
         movementType,
-        productId: data.productId,
+        itemName: data.itemName,
         warehouseId: data.warehouseId,
         quantity: qty.abs().toFixed(3),
         reason: data.reason,
@@ -78,7 +79,7 @@ export async function transferStock(_prev: unknown, formData: FormData) {
   const user = await requirePermission("inventory:transfer");
 
   const raw = {
-    productId: formData.get("productId") as string,
+    itemName: formData.get("itemName") as string,
     fromWarehouseId: formData.get("fromWarehouseId") as string,
     toWarehouseId: formData.get("toWarehouseId") as string,
     quantity: formData.get("quantity") as string,
@@ -100,7 +101,7 @@ export async function transferStock(_prev: unknown, formData: FormData) {
     await prisma.$transaction(async (tx) => {
       await createStockMovement({
         movementType: MovementType.TRANSFER_OUT,
-        productId: data.productId,
+        itemName: data.itemName,
         warehouseId: data.fromWarehouseId,
         quantity: data.quantity.toString(),
         lotId: data.lotId,
@@ -112,7 +113,7 @@ export async function transferStock(_prev: unknown, formData: FormData) {
 
       await createStockMovement({
         movementType: MovementType.TRANSFER_IN,
-        productId: data.productId,
+        itemName: data.itemName,
         warehouseId: data.toWarehouseId,
         quantity: data.quantity.toString(),
         lotId: data.lotId,
@@ -274,7 +275,7 @@ export async function recallLot(lotId: string) {
       if (qty.gt(0)) {
         await createStockMovement({
           movementType: MovementType.RECALL_HOLD,
-          productId: lot.productId,
+          itemName: lot.itemName,
           warehouseId: lot.warehouseId,
           quantity: qty.toFixed(3),
           lotId: lot.id,

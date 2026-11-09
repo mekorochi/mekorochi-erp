@@ -5,7 +5,8 @@ import Decimal from "decimal.js";
 export async function createStockMovement(
   params: {
     movementType: MovementType;
-    productId: string;
+    itemName: string;
+    productId?: string;
     warehouseId: string;
     quantity: number | string;
     unitCost?: number | string;
@@ -47,7 +48,8 @@ export async function createStockMovement(
   const movement = await db.stockMovement.create({
     data: {
       movementType: params.movementType,
-      productId: params.productId,
+      itemName: params.itemName,
+      productId: params.productId || null,
       warehouseId: params.warehouseId,
       lotId: params.lotId,
       quantity: signedQty.toFixed(3),
@@ -63,13 +65,14 @@ export async function createStockMovement(
 
   await db.stockItem.upsert({
     where: {
-      productId_warehouseId: {
-        productId: params.productId,
+      itemName_warehouseId: {
+        itemName: params.itemName,
         warehouseId: params.warehouseId,
       },
     },
     create: {
-      productId: params.productId,
+      itemName: params.itemName,
+      productId: params.productId || null,
       warehouseId: params.warehouseId,
       quantity: isInbound ? qty.toFixed(3) : "0",
       avgCost: cost?.toFixed(4) || "0",
@@ -93,7 +96,8 @@ export async function createStockMovement(
 
 export async function createLotAndReceive(
   params: {
-    productId: string;
+    itemName: string;
+    productId?: string;
     warehouseId: string;
     quantity: number | string;
     costPerUnit: number | string;
@@ -116,7 +120,8 @@ export async function createLotAndReceive(
   const lot = await db.stockLot.create({
     data: {
       lotNumber: params.lotNumber,
-      productId: params.productId,
+      itemName: params.itemName,
+      productId: params.productId || null,
       warehouseId: params.warehouseId,
       quantity: "0",
       costPerUnit: new Decimal(params.costPerUnit).toFixed(4),
@@ -131,6 +136,7 @@ export async function createLotAndReceive(
 
   await createStockMovement({
     movementType: params.movementType,
+    itemName: params.itemName,
     productId: params.productId,
     warehouseId: params.warehouseId,
     quantity: params.quantity,
@@ -146,7 +152,7 @@ export async function createLotAndReceive(
 }
 
 export async function reserveStock(
-  productId: string,
+  itemName: string,
   warehouseId: string,
   quantity: number | string,
   tx?: Prisma.TransactionClient
@@ -155,24 +161,24 @@ export async function reserveStock(
   const qty = new Decimal(quantity);
 
   const stockItem = await db.stockItem.findUnique({
-    where: { productId_warehouseId: { productId, warehouseId } },
+    where: { itemName_warehouseId: { itemName, warehouseId } },
   });
 
-  if (!stockItem) throw new Error("Stock item not found");
+  if (!stockItem) throw new Error(`Stock item "${itemName}" not found`);
 
   const available = new Decimal(stockItem.quantity.toString()).minus(new Decimal(stockItem.reservedQty.toString()));
   if (available.lt(qty)) {
-    throw new Error(`Insufficient stock. Available: ${available.toFixed(3)}, Requested: ${qty.toFixed(3)}`);
+    throw new Error(`Insufficient stock for "${itemName}". Available: ${available.toFixed(3)}, Requested: ${qty.toFixed(3)}`);
   }
 
   await db.stockItem.update({
-    where: { productId_warehouseId: { productId, warehouseId } },
+    where: { itemName_warehouseId: { itemName, warehouseId } },
     data: { reservedQty: { increment: parseFloat(qty.toFixed(3)) } },
   });
 }
 
 export async function releaseReservation(
-  productId: string,
+  itemName: string,
   warehouseId: string,
   quantity: number | string,
   tx?: Prisma.TransactionClient
@@ -181,13 +187,13 @@ export async function releaseReservation(
   const qty = new Decimal(quantity);
 
   await db.stockItem.update({
-    where: { productId_warehouseId: { productId, warehouseId } },
+    where: { itemName_warehouseId: { itemName, warehouseId } },
     data: { reservedQty: { decrement: parseFloat(qty.toFixed(3)) } },
   });
 }
 
-export async function getAvailableStock(productId: string, warehouseId?: string) {
-  const where: Prisma.StockItemWhereInput = { productId };
+export async function getAvailableStock(itemName: string, warehouseId?: string) {
+  const where: Prisma.StockItemWhereInput = { itemName };
   if (warehouseId) where.warehouseId = warehouseId;
 
   const items = await prisma.stockItem.findMany({ where });
@@ -198,13 +204,13 @@ export async function getAvailableStock(productId: string, warehouseId?: string)
 }
 
 export async function getLotsForPicking(
-  productId: string,
+  itemName: string,
   warehouseId: string,
   quantity: number | string
 ) {
   const lots = await prisma.stockLot.findMany({
     where: {
-      productId,
+      itemName,
       warehouseId,
       status: "AVAILABLE",
       quantity: { gt: 0 },

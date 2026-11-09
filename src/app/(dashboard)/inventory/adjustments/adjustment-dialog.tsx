@@ -18,19 +18,16 @@ import {
 import { Plus } from "lucide-react";
 import { adjustStock } from "../actions";
 
-import { getUnitLabel, isWeightUnit } from "@/lib/utils";
+const UNITS = ["kg", "g", "L", "mL", "pcs", "box", "set"];
 
 interface Props {
-  products: Array<{ id: string; name: string; sku: string; unitOfMeasure: string }>;
   warehouses: Array<{ id: string; name: string; code: string }>;
 }
 
-export function StockAdjustmentDialog({ products, warehouses }: Props) {
+export function StockAdjustmentDialog({ warehouses }: Props) {
   const [open, setOpen] = useState(false);
-  const [selectedProductId, setSelectedProductId] = useState<string>("");
-  const selectedProduct = products.find((p) => p.id === selectedProductId);
-  const unitLabel = selectedProduct ? getUnitLabel(selectedProduct.unitOfMeasure) : "";
-  const step = selectedProduct && isWeightUnit(selectedProduct.unitOfMeasure) ? "0.001" : "1";
+  const [unit, setUnit] = useState("kg");
+  const step = ["kg", "g", "L", "mL"].includes(unit) ? "0.001" : "1";
   const [state, formAction, isPending] = useActionState(async (_prev: unknown, formData: FormData) => {
     const result = await adjustStock(_prev, formData);
     if (result.success) setOpen(false);
@@ -49,46 +46,51 @@ export function StockAdjustmentDialog({ products, warehouses }: Props) {
         <DialogHeader>
           <DialogTitle>Stock Adjustment</DialogTitle>
           <DialogDescription>
-            Add or remove stock. Use positive quantity to add, negative to remove.
+            Add or remove raw material stock. Use positive quantity to add, negative to remove.
           </DialogDescription>
         </DialogHeader>
 
         <form action={formAction} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="productId">Product</Label>
-            <Select name="productId" required onValueChange={setSelectedProductId}>
-              <SelectTrigger id="productId">
-                <SelectValue placeholder="Select product" />
-              </SelectTrigger>
-              <SelectContent>
-                {products.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name} ({p.sku})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="warehouseId">Warehouse</Label>
-            <Select name="warehouseId" required>
-              <SelectTrigger id="warehouseId">
-                <SelectValue placeholder="Select warehouse" />
-              </SelectTrigger>
-              <SelectContent>
-                {warehouses.map((w) => (
-                  <SelectItem key={w.id} value={w.id}>
-                    {w.name} ({w.code})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label htmlFor="itemName">Item Name</Label>
+            <Input id="itemName" name="itemName" required placeholder="e.g. Cacao Beans, Sugar, Cocoa Butter" />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="quantity">Quantity (+/-){unitLabel ? ` (${unitLabel})` : ""}</Label>
+              <Label htmlFor="warehouseId">Warehouse</Label>
+              <Select name="warehouseId" required>
+                <SelectTrigger id="warehouseId">
+                  <SelectValue placeholder="Select warehouse" />
+                </SelectTrigger>
+                <SelectContent>
+                  {warehouses.map((w) => (
+                    <SelectItem key={w.id} value={w.id}>
+                      {w.name} ({w.code})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="unit">Unit</Label>
+              <input type="hidden" name="unit" value={unit} />
+              <Select value={unit} onValueChange={setUnit}>
+                <SelectTrigger id="unit">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {UNITS.map((u) => (
+                    <SelectItem key={u} value={u}>{u}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="quantity">Quantity (+/-) ({unit})</Label>
               <Input id="quantity" name="quantity" type="number" step={step} required placeholder="e.g. 100 or -50" />
             </div>
             <div className="space-y-2">

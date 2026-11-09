@@ -42,7 +42,7 @@ export default async function LotsPage({
     take: 200,
   });
 
-  const productIds = [...new Set(lots.map((l) => l.productId))];
+  const productIds = [...new Set(lots.map((l) => l.productId).filter((id): id is string => id !== null))];
   const warehouseIds = [...new Set(lots.map((l) => l.warehouseId))];
 
   const [products, warehouses] = await Promise.all([
@@ -110,7 +110,7 @@ export default async function LotsPage({
                 </thead>
                 <tbody>
                   {lots.map((lot) => {
-                    const product = pMap.get(lot.productId);
+                    const product = lot.productId ? pMap.get(lot.productId) : null;
                     const warehouse = wMap.get(lot.warehouseId);
                     const qty = new Decimal(lot.quantity.toString());
                     const cost = new Decimal(lot.costPerUnit.toString());
@@ -122,8 +122,8 @@ export default async function LotsPage({
                       <tr key={lot.id} className="border-b hover:bg-muted/30 transition-colors">
                         <td className="px-4 py-3 font-mono text-xs font-medium">{lot.lotNumber}</td>
                         <td className="px-4 py-3">
-                          <span className="font-medium">{product?.name || "—"}</span>
-                          <span className="block text-xs text-muted-foreground font-mono">{product?.sku}</span>
+                          <span className="font-medium">{lot.itemName || product?.name || "—"}</span>
+                          {product?.sku && <span className="block text-xs text-muted-foreground font-mono">{product.sku}</span>}
                         </td>
                         <td className="px-4 py-3">{warehouse?.name || "—"}</td>
                         <td className="px-4 py-3 text-right font-mono">{formatNumber(qty.toNumber(), 1)}</td>
@@ -154,7 +154,7 @@ export default async function LotsPage({
           {/* Mobile Cards */}
           <div className="md:hidden space-y-3">
             {lots.map((lot) => {
-              const product = pMap.get(lot.productId);
+              const product = lot.productId ? pMap.get(lot.productId) : null;
               const qty = new Decimal(lot.quantity.toString());
               const statusConfig = STATUS_BADGES[lot.status] || { label: lot.status, variant: "outline" as const };
               const isExpiring = lot.expiryDate && lot.expiryDate <= new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000) && lot.expiryDate > now;
@@ -166,7 +166,7 @@ export default async function LotsPage({
                     <div className="flex items-start justify-between mb-1">
                       <div className="min-w-0 flex-1">
                         <p className="font-mono text-xs font-semibold">{lot.lotNumber}</p>
-                        <p className="font-medium text-sm truncate">{product?.name}</p>
+                        <p className="font-medium text-sm truncate">{lot.itemName || product?.name || "—"}</p>
                       </div>
                       <Badge variant={statusConfig.variant}>{statusConfig.label}</Badge>
                     </div>

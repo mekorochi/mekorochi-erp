@@ -9,9 +9,10 @@ export const warehouseSchema = z.object({
 });
 
 export const stockAdjustmentSchema = z.object({
-  productId: z.string().min(1, "Product is required"),
+  itemName: z.string().min(1, "Item name is required"),
   warehouseId: z.string().min(1, "Warehouse is required"),
   quantity: z.coerce.number().refine(v => v !== 0, "Quantity cannot be zero"),
+  unit: z.string().default("kg"),
   reason: z.string().min(1, "Reason is required"),
   lotNumber: z.string().optional(),
   expiryDate: z.coerce.date().optional(),
@@ -19,7 +20,7 @@ export const stockAdjustmentSchema = z.object({
 });
 
 export const stockTransferSchema = z.object({
-  productId: z.string().min(1, "Product is required"),
+  itemName: z.string().min(1, "Item name is required"),
   fromWarehouseId: z.string().min(1, "Source warehouse is required"),
   toWarehouseId: z.string().min(1, "Destination warehouse is required"),
   quantity: z.coerce.number().positive("Quantity must be positive"),

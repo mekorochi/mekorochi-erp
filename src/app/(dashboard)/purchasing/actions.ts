@@ -188,7 +188,7 @@ export async function receiveGoods(data: {
     return await prisma.$transaction(async (tx) => {
       const po = await tx.purchaseOrder.findUnique({
         where: { id: parsed.data.purchaseOrderId },
-        include: { items: true },
+        include: { items: { include: { product: true } } },
       });
       if (!po) throw new Error("PO not found");
       if (!([POStatus.APPROVED, POStatus.PARTIALLY_RECEIVED] as readonly POStatus[]).includes(po.status)) {
@@ -220,7 +220,9 @@ export async function receiveGoods(data: {
         const unitCost = poItem ? new Decimal(poItem.unitPrice.toString()) : new Decimal(0);
         const lotNum = item.lotNumber || await generateLotNumber("PUR");
 
+        const productForItem = poItem?.product;
         await createLotAndReceive({
+          itemName: productForItem?.name || item.productId,
           productId: item.productId,
           warehouseId: parsed.data.warehouseId,
           quantity: item.quantity,

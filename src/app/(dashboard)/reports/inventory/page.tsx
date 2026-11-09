@@ -19,10 +19,10 @@ export default async function InventoryReportPage() {
 
   const stockItems = await prisma.stockItem.findMany({
     include: { product: true, warehouse: true },
-    orderBy: { product: { name: "asc" } },
+    orderBy: { itemName: "asc" },
   });
 
-  const totalSKUs = new Set(stockItems.map((s) => s.productId)).size;
+  const totalItems = new Set(stockItems.map((s) => s.itemName)).size;
   const totalValue = stockItems.reduce(
     (sum, s) =>
       sum.plus(
@@ -31,9 +31,8 @@ export default async function InventoryReportPage() {
     new Decimal(0)
   );
 
-  // Low stock: available < product reorder level
   const lowStock = stockItems.filter((s) => {
-    if (!s.product.reorderLevel) return false;
+    if (!s.product?.reorderLevel) return false;
     const available = new Decimal(s.quantity.toString()).minus(
       new Decimal(s.reservedQty.toString())
     );
@@ -91,8 +90,8 @@ export default async function InventoryReportPage() {
               <Package className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Total SKUs</p>
-              <p className="text-xl font-semibold">{totalSKUs}</p>
+              <p className="text-xs text-muted-foreground">Total Items</p>
+              <p className="text-xl font-semibold">{totalItems}</p>
             </div>
           </CardContent>
         </Card>
@@ -163,14 +162,14 @@ export default async function InventoryReportPage() {
                     return (
                       <TableRow key={s.id}>
                         <TableCell className="font-medium">
-                          {s.product.name}
+                          {s.itemName}
                         </TableCell>
                         <TableCell>{s.warehouse.name}</TableCell>
                         <TableCell className="text-right text-destructive font-medium">
                           {formatNumber(available, 1)}
                         </TableCell>
                         <TableCell className="text-right">
-                          {formatNumber(s.product.reorderLevel!, 1)}
+                          {formatNumber(s.product!.reorderLevel!, 1)}
                         </TableCell>
                       </TableRow>
                     );
@@ -217,7 +216,7 @@ export default async function InventoryReportPage() {
                       <TableCell className="font-mono text-sm">
                         {lot.lotNumber}
                       </TableCell>
-                      <TableCell>{lot.productId}</TableCell>
+                      <TableCell>{lot.itemName}</TableCell>
                       <TableCell className="text-right">
                         {formatNumber(lot.quantity, 1)}
                       </TableCell>
@@ -273,7 +272,7 @@ export default async function InventoryReportPage() {
                     return (
                       <TableRow key={s.id}>
                         <TableCell className="font-medium">
-                          {s.product.name}
+                          {s.itemName}
                         </TableCell>
                         <TableCell>{s.warehouse.name}</TableCell>
                         <TableCell className="text-right">
@@ -334,7 +333,7 @@ export default async function InventoryReportPage() {
                           {m.movementType.replace(/_/g, " ")}
                         </Badge>
                       </TableCell>
-                      <TableCell>{m.productId}</TableCell>
+                      <TableCell>{m.itemName || "—"}</TableCell>
                       <TableCell
                         className={`text-right font-medium ${
                           Number(m.quantity) > 0

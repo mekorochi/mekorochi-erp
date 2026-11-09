@@ -91,8 +91,10 @@ export async function completeProduction(
     if (!sourceWarehouse) throw new Error("No source warehouse found");
 
     for (const consumption of data.consumptions) {
+      const consumeProduct = await tx.product.findUnique({ where: { id: consumption.productId }, select: { name: true } });
       await createStockMovement({
         movementType: MovementType.PRODUCTION_CONSUME,
+        itemName: consumeProduct?.name || consumption.productId,
         productId: consumption.productId,
         warehouseId: sourceWarehouse.id,
         quantity: consumption.actualQty,
@@ -119,6 +121,7 @@ export async function completeProduction(
       : new Decimal(0);
 
     await createLotAndReceive({
+      itemName: product.name,
       productId: order.bom.productId,
       warehouseId: data.warehouseId,
       quantity: data.actualQty,

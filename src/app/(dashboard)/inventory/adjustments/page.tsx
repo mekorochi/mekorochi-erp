@@ -28,12 +28,6 @@ const MOVEMENT_LABELS: Record<string, { label: string; variant: "default" | "suc
 export default async function AdjustmentsPage() {
   await requirePermission("inventory:view");
 
-  const products = await prisma.product.findMany({
-    where: { isActive: true },
-    select: { id: true, name: true, sku: true, unitOfMeasure: true },
-    orderBy: { name: "asc" },
-  });
-
   const warehouses = await prisma.warehouse.findMany({
     where: { isActive: true },
     select: { id: true, name: true, code: true },
@@ -46,17 +40,10 @@ export default async function AdjustmentsPage() {
     include: { warehouse: true, lot: true },
   });
 
-  const productIds = [...new Set(movements.map((m) => m.productId))];
-  const productsMap = await prisma.product.findMany({
-    where: { id: { in: productIds } },
-    select: { id: true, name: true, sku: true },
-  });
-  const pMap = new Map(productsMap.map((p) => [p.id, p]));
-
   return (
     <div>
       <PageHeader title="Stock Movements" description="Track all stock adjustments and movements">
-        <StockAdjustmentDialog products={products} warehouses={warehouses} />
+        <StockAdjustmentDialog warehouses={warehouses} />
       </PageHeader>
 
       {movements.length === 0 ? (
@@ -75,7 +62,7 @@ export default async function AdjustmentsPage() {
                   <tr className="border-b bg-muted/50">
                     <th className="text-left px-4 py-3 font-medium">Date</th>
                     <th className="text-left px-4 py-3 font-medium">Type</th>
-                    <th className="text-left px-4 py-3 font-medium">Product</th>
+                    <th className="text-left px-4 py-3 font-medium">Item</th>
                     <th className="text-left px-4 py-3 font-medium">Warehouse</th>
                     <th className="text-left px-4 py-3 font-medium">Lot</th>
                     <th className="text-right px-4 py-3 font-medium">Qty</th>
@@ -84,7 +71,6 @@ export default async function AdjustmentsPage() {
                 </thead>
                 <tbody>
                   {movements.map((m) => {
-                    const product = pMap.get(m.productId);
                     const qty = new Decimal(m.quantity.toString());
                     const config = MOVEMENT_LABELS[m.movementType] || { label: m.movementType, variant: "outline" as const };
 
@@ -97,8 +83,7 @@ export default async function AdjustmentsPage() {
                           <Badge variant={config.variant}>{config.label}</Badge>
                         </td>
                         <td className="px-4 py-3">
-                          <span className="font-medium">{product?.name || "—"}</span>
-                          <span className="block text-xs text-muted-foreground font-mono">{product?.sku}</span>
+                          <span className="font-medium">{m.itemName || "—"}</span>
                         </td>
                         <td className="px-4 py-3">{m.warehouse.name}</td>
                         <td className="px-4 py-3 text-xs font-mono text-muted-foreground">
@@ -121,7 +106,6 @@ export default async function AdjustmentsPage() {
           {/* Mobile Cards */}
           <div className="md:hidden space-y-3">
             {movements.map((m) => {
-              const product = pMap.get(m.productId);
               const qty = new Decimal(m.quantity.toString());
               const config = MOVEMENT_LABELS[m.movementType] || { label: m.movementType, variant: "outline" as const };
 
@@ -130,7 +114,7 @@ export default async function AdjustmentsPage() {
                   <CardContent className="pt-3 pb-3">
                     <div className="flex items-start justify-between mb-1">
                       <div className="min-w-0 flex-1">
-                        <p className="font-medium truncate text-sm">{product?.name || "Unknown"}</p>
+                        <p className="font-medium truncate text-sm">{m.itemName || "Unknown"}</p>
                         <p className="text-xs text-muted-foreground">{m.warehouse.name} · {formatDateTime(m.createdAt)}</p>
                       </div>
                       <span className={`font-mono font-bold text-sm ${qty.gt(0) ? "text-sage-deep" : "text-destructive"}`}>

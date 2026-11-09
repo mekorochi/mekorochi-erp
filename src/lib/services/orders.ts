@@ -119,17 +119,17 @@ export async function confirmOrder(orderId: string, userId: string) {
     for (const item of order.items) {
       const product = await tx.product.findUnique({
         where: { id: item.productId },
-        include: { bundleItems: true },
+        include: { bundleItems: { include: { product: true } } },
       });
 
       if (product?.isBundle && product.bundleItems.length > 0) {
         const orderQty = new Decimal(item.quantity.toString());
         for (const bi of product.bundleItems) {
           const componentQty = new Decimal(bi.quantity.toString()).mul(orderQty);
-          await reserveStock(bi.productId, defaultWarehouse.id, componentQty.toFixed(3), tx);
+          await reserveStock(bi.product.name, defaultWarehouse.id, componentQty.toFixed(3), tx);
         }
-      } else {
-        await reserveStock(item.productId, defaultWarehouse.id, item.quantity.toString(), tx);
+      } else if (product) {
+        await reserveStock(product.name, defaultWarehouse.id, item.quantity.toString(), tx);
       }
     }
 
@@ -161,16 +161,16 @@ export async function cancelOrder(orderId: string, userId: string) {
           if (unreservedQty.gt(0)) {
             const product = await tx.product.findUnique({
               where: { id: item.productId },
-              include: { bundleItems: true },
+              include: { bundleItems: { include: { product: true } } },
             });
 
             if (product?.isBundle && product.bundleItems.length > 0) {
               for (const bi of product.bundleItems) {
                 const componentQty = new Decimal(bi.quantity.toString()).mul(unreservedQty);
-                await releaseReservation(bi.productId, defaultWarehouse.id, componentQty.toFixed(3), tx);
+                await releaseReservation(bi.product.name, defaultWarehouse.id, componentQty.toFixed(3), tx);
               }
-            } else {
-              await releaseReservation(item.productId, defaultWarehouse.id, unreservedQty.toFixed(3), tx);
+            } else if (product) {
+              await releaseReservation(product.name, defaultWarehouse.id, unreservedQty.toFixed(3), tx);
             }
           }
         }

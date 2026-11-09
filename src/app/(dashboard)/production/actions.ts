@@ -285,6 +285,7 @@ export async function recallLotAction(lotId: string, reason: string) {
         await tx.stockMovement.create({
           data: {
             movementType: MovementType.RECALL_HOLD,
+            itemName: lot.itemName,
             productId: lot.productId,
             warehouseId: lot.warehouseId,
             lotId: lot.id,
@@ -296,8 +297,8 @@ export async function recallLotAction(lotId: string, reason: string) {
 
         await tx.stockItem.update({
           where: {
-            productId_warehouseId: {
-              productId: lot.productId,
+            itemName_warehouseId: {
+              itemName: lot.itemName,
               warehouseId: lot.warehouseId,
             },
           },

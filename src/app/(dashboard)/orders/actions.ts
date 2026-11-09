@@ -235,6 +235,7 @@ export async function createFulfillment(data: {
           const compQty = new Decimal(bi.quantity.toString()).mul(item.quantity).toNumber();
           await createStockMovement({
             movementType: MovementType.SALE_DISPATCH,
+            itemName: bi.product.name,
             productId: bi.productId,
             warehouseId: defaultWarehouse.id,
             quantity: compQty,
@@ -242,11 +243,12 @@ export async function createFulfillment(data: {
             referenceId: data.orderId,
             createdBy: user.id,
           }, tx);
-          await releaseReservation(bi.productId, defaultWarehouse.id, compQty, tx);
+          await releaseReservation(bi.product.name, defaultWarehouse.id, compQty, tx);
         }
       } else {
         await createStockMovement({
           movementType: MovementType.SALE_DISPATCH,
+          itemName: product?.name || item.productId,
           productId: item.productId,
           warehouseId: defaultWarehouse.id,
           quantity: item.quantity,
@@ -255,13 +257,13 @@ export async function createFulfillment(data: {
           referenceId: data.orderId,
           createdBy: user.id,
         }, tx);
-        await releaseReservation(item.productId, defaultWarehouse.id, item.quantity, tx);
+        await releaseReservation(product?.name || item.productId, defaultWarehouse.id, item.quantity, tx);
       }
 
       if (product?.autoConsumeBom && !product.isBundle) {
         const bom = await tx.bOM.findFirst({
           where: { productId: item.productId, isActive: true },
-          include: { items: true },
+          include: { items: { include: { product: true } } },
           orderBy: { version: "desc" },
         });
         if (bom) {
@@ -270,6 +272,7 @@ export async function createFulfillment(data: {
             const consumeQty = new Decimal(bomItem.quantity.toString()).mul(multiplier).toNumber();
             await createStockMovement({
               movementType: MovementType.PRODUCTION_CONSUME,
+              itemName: bomItem.product.name,
               productId: bomItem.productId,
               warehouseId: defaultWarehouse.id,
               quantity: consumeQty,
