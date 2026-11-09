@@ -6,11 +6,22 @@ import { requirePermission, getCurrentUser } from "@/lib/auth";
 import { createAuditEvent } from "@/lib/auth/audit";
 import { productSchema, categorySchema } from "@/lib/validators/products";
 import { generateSlug } from "@/lib/utils";
+import { createLotAndReceive, generateLotNumber, createStockMovement } from "@/lib/services/inventory";
+import { MovementType } from "@prisma/client";
 
 export async function createProduct(formData: Record<string, unknown>) {
   const user = await requirePermission("products:create");
 
-  const parsed = productSchema.safeParse(formData);
+  const openingStock = formData.openingStock as {
+    warehouseId: string;
+    quantity: number;
+    costPerUnit: number;
+    lotNumber?: string;
+    expiryDate?: string;
+  } | undefined;
+  const { openingStock: _, ...productData } = formData;
+
+  const parsed = productSchema.safeParse(productData);
   if (!parsed.success) {
     return { error: parsed.error.issues.map((i) => i.message).join(", ") };
   }
@@ -26,47 +37,75 @@ export async function createProduct(formData: Record<string, unknown>) {
   const existingSlug = await prisma.product.findUnique({ where: { slug } });
   const finalSlug = existingSlug ? `${slug}-${Date.now()}` : slug;
 
-  const product = await prisma.product.create({
-    data: {
-      name: data.name,
-      slug: finalSlug,
-      sku: data.sku,
-      barcode: data.barcode || null,
-      description: data.description || null,
-      categoryId: data.categoryId || null,
-      type: data.type,
-      unitOfMeasure: data.unitOfMeasure,
-      sellingPrice: data.sellingPrice ?? null,
-      costPrice: data.costPrice ?? null,
-      wholesalePrice: data.wholesalePrice ?? null,
-      corporatePrice: data.corporatePrice ?? null,
-      hsnCode: data.hsnCode || null,
-      taxRate: data.taxRate ?? null,
-      weight: data.weight ?? null,
-      weightUnit: data.weightUnit || "g",
-      shelfLifeDays: data.shelfLifeDays ?? null,
-      allergens: data.allergens || null,
-      ingredients: data.ingredients || null,
-      reorderLevel: data.reorderLevel ?? null,
-      minOrderQty: data.minOrderQty ?? null,
-      unitContent: data.unitContent ?? null,
-      unitContentUnit: data.unitContentUnit || null,
-      autoConsumeBom: data.autoConsumeBom,
-      isBundle: data.isBundle,
-      isActive: data.isActive,
-    },
-  });
+  try {
+    const product = await prisma.product.create({
+      data: {
+        name: data.name,
+        slug: finalSlug,
+        sku: data.sku,
+        barcode: data.barcode || null,
+        description: data.description || null,
+        categoryId: data.categoryId || null,
+        type: data.type,
+        unitOfMeasure: data.unitOfMeasure,
+        sellingPrice: data.sellingPrice ?? null,
+        costPrice: data.costPrice ?? null,
+        wholesalePrice: data.wholesalePrice ?? null,
+        corporatePrice: data.corporatePrice ?? null,
+        hsnCode: data.hsnCode || null,
+        taxRate: data.taxRate ?? null,
+        weight: data.weight ?? null,
+        weightUnit: data.weightUnit || "g",
+        shelfLifeDays: data.shelfLifeDays ?? null,
+        allergens: data.allergens || null,
+        ingredients: data.ingredients || null,
+        reorderLevel: data.reorderLevel ?? null,
+        minOrderQty: data.minOrderQty ?? null,
+        unitContent: data.unitContent ?? null,
+        unitContentUnit: data.unitContentUnit || null,
+        autoConsumeBom: data.autoConsumeBom,
+        isBundle: data.isBundle,
+        isActive: data.isActive,
+      },
+    });
 
-  await createAuditEvent({
-    userId: user.id,
-    action: "product.create",
-    entityType: "Product",
-    entityId: product.id,
-    after: { name: product.name, sku: product.sku, type: product.type },
-  });
+    if (openingStock && openingStock.quantity > 0) {
+      const lotNumber = openingStock.lotNumber || await generateLotNumber("OPN");
+      await createLotAndReceive({
+        itemName: product.name,
+        productId: product.id,
+        warehouseId: openingStock.warehouseId,
+        quantity: openingStock.quantity,
+        costPerUnit: openingStock.costPerUnit || 0,
+        lotNumber,
+        expiryDate: openingStock.expiryDate ? new Date(openingStock.expiryDate) : undefined,
+        referenceType: "Product",
+        referenceId: product.id,
+        movementType: MovementType.OPENING_BALANCE,
+        createdBy: user.id,
+      });
+    }
 
-  revalidatePath("/products");
-  return { success: true, productId: product.id };
+    await createAuditEvent({
+      userId: user.id,
+      action: "product.create",
+      entityType: "Product",
+      entityId: product.id,
+      after: {
+        name: product.name,
+        sku: product.sku,
+        type: product.type,
+        ...(openingStock ? { openingQty: openingStock.quantity, warehouse: openingStock.warehouseId } : {}),
+      },
+    });
+
+    revalidatePath("/products");
+    revalidatePath("/inventory");
+    return { success: true, productId: product.id };
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : "Failed to create product";
+    return { error: message };
+  }
 }
 
 export async function updateProduct(id: string, formData: Record<string, unknown>) {

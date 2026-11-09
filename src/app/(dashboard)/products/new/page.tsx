@@ -7,10 +7,17 @@ import { createProduct } from "../actions";
 export default async function NewProductPage() {
   await requirePermission("products:create");
 
-  const categories = await prisma.category.findMany({
-    where: { isActive: true },
-    orderBy: { name: "asc" },
-  });
+  const [categories, warehouses] = await Promise.all([
+    prisma.category.findMany({
+      where: { isActive: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.warehouse.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true, code: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
   return (
     <div>
@@ -20,6 +27,7 @@ export default async function NewProductPage() {
       />
       <ProductForm
         categories={categories.map((c) => ({ id: c.id, name: c.name }))}
+        warehouses={warehouses}
         onSubmit={createProduct}
       />
     </div>

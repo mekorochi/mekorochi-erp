@@ -12,11 +12,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { Save, Loader2 } from "lucide-react";
+import { Save, Loader2, Package } from "lucide-react";
 
 interface ProductFormProps {
   initialData?: Partial<ProductInput> & { id?: string };
   categories: Array<{ id: string; name: string }>;
+  warehouses?: Array<{ id: string; name: string; code: string }>;
   onSubmit: (data: Record<string, unknown>) => Promise<{ error?: string; success?: boolean; productId?: string }>;
 }
 
@@ -39,10 +40,19 @@ const unitOptions = [
   { value: "SET", label: "Set" },
 ];
 
-export function ProductForm({ initialData, categories, onSubmit }: ProductFormProps) {
+export function ProductForm({ initialData, categories, warehouses, onSubmit }: ProductFormProps) {
   const router = useRouter();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [addStock, setAddStock] = useState(false);
+  const [stockData, setStockData] = useState({
+    warehouseId: "",
+    openingQty: "",
+    costPerUnit: "",
+    lotNumber: "",
+    expiryDate: "",
+  });
+  const isNew = !initialData?.id;
 
   const {
     register,
@@ -97,8 +107,30 @@ export function ProductForm({ initialData, categories, onSubmit }: ProductFormPr
     setLoading(true);
     setError("");
     try {
+      if (addStock && isNew) {
+        if (!stockData.warehouseId) {
+          setError("Please select a warehouse for opening stock");
+          setLoading(false);
+          return;
+        }
+        if (!stockData.openingQty || parseFloat(stockData.openingQty) <= 0) {
+          setError("Opening quantity must be greater than 0");
+          setLoading(false);
+          return;
+        }
+      }
       data.isBundle = data.type === "BUNDLE";
-      const result = await onSubmit(data as Record<string, unknown>);
+      const submitData: Record<string, unknown> = { ...data as Record<string, unknown> };
+      if (addStock && isNew) {
+        submitData.openingStock = {
+          warehouseId: stockData.warehouseId,
+          quantity: parseFloat(stockData.openingQty),
+          costPerUnit: parseFloat(stockData.costPerUnit) || 0,
+          lotNumber: stockData.lotNumber || undefined,
+          expiryDate: stockData.expiryDate || undefined,
+        };
+      }
+      const result = await onSubmit(submitData);
       if (result.error) {
         setError(result.error);
       } else if (result.productId) {
@@ -318,6 +350,89 @@ export function ProductForm({ initialData, categories, onSubmit }: ProductFormPr
           </CardContent>
         </Card>
       </div>
+
+      {/* Opening Stock — only for new products */}
+      {isNew && warehouses && warehouses.length > 0 && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                Opening Stock
+              </CardTitle>
+              <Switch
+                checked={addStock}
+                onCheckedChange={setAddStock}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Add initial inventory for this product right away
+            </p>
+          </CardHeader>
+          {addStock && (
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="stock-warehouse">Warehouse *</Label>
+                  <select
+                    id="stock-warehouse"
+                    value={stockData.warehouseId}
+                    onChange={(e) => setStockData((s) => ({ ...s, warehouseId: e.target.value }))}
+                    className="w-full h-11 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    <option value="">Select warehouse</option>
+                    {warehouses.map((w) => (
+                      <option key={w.id} value={w.id}>{w.name} ({w.code})</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label htmlFor="stock-qty">Opening Quantity *</Label>
+                  <Input
+                    id="stock-qty"
+                    type="number"
+                    step="0.001"
+                    placeholder="e.g. 100"
+                    value={stockData.openingQty}
+                    onChange={(e) => setStockData((s) => ({ ...s, openingQty: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="stock-cost">Cost per Unit (₹)</Label>
+                  <Input
+                    id="stock-cost"
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={stockData.costPerUnit}
+                    onChange={(e) => setStockData((s) => ({ ...s, costPerUnit: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="stock-lot">Lot Number</Label>
+                  <Input
+                    id="stock-lot"
+                    placeholder="e.g. LOT-001"
+                    value={stockData.lotNumber}
+                    onChange={(e) => setStockData((s) => ({ ...s, lotNumber: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="stock-expiry">Expiry Date</Label>
+                  <Input
+                    id="stock-expiry"
+                    type="date"
+                    value={stockData.expiryDate}
+                    onChange={(e) => setStockData((s) => ({ ...s, expiryDate: e.target.value }))}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          )}
+        </Card>
+      )}
 
       {/* Toggles */}
       <Card>
