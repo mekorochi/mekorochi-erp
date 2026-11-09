@@ -2,7 +2,7 @@ import prisma from "@/lib/db/prisma";
 import { OrderStatus, PaymentState, type Prisma } from "@prisma/client";
 import Decimal from "decimal.js";
 import { getNextSequence, getCurrentFiscalYear } from "./sequence";
-import { reserveStock, releaseReservation, createStockMovement } from "./inventory";
+import { tryReserveStock, tryReleaseReservation, createStockMovement } from "./inventory";
 
 interface OrderItemData {
   productId: string;
@@ -114,22 +114,23 @@ export async function confirmOrder(orderId: string, userId: string) {
     if (order.status !== OrderStatus.DRAFT) throw new Error("Only draft orders can be confirmed");
 
     const defaultWarehouse = await tx.warehouse.findFirst({ where: { isDefault: true } });
-    if (!defaultWarehouse) throw new Error("No default warehouse configured");
 
-    for (const item of order.items) {
-      const product = await tx.product.findUnique({
-        where: { id: item.productId },
-        include: { bundleItems: { include: { product: true } } },
-      });
+    if (defaultWarehouse) {
+      for (const item of order.items) {
+        const product = await tx.product.findUnique({
+          where: { id: item.productId },
+          include: { bundleItems: { include: { product: true } } },
+        });
 
-      if (product?.isBundle && product.bundleItems.length > 0) {
-        const orderQty = new Decimal(item.quantity.toString());
-        for (const bi of product.bundleItems) {
-          const componentQty = new Decimal(bi.quantity.toString()).mul(orderQty);
-          await reserveStock(bi.product.name, defaultWarehouse.id, componentQty.toFixed(3), tx);
+        if (product?.isBundle && product.bundleItems.length > 0) {
+          const orderQty = new Decimal(item.quantity.toString());
+          for (const bi of product.bundleItems) {
+            const componentQty = new Decimal(bi.quantity.toString()).mul(orderQty);
+            await tryReserveStock(bi.product.name, defaultWarehouse.id, componentQty.toFixed(3), tx);
+          }
+        } else if (product) {
+          await tryReserveStock(product.name, defaultWarehouse.id, item.quantity.toString(), tx);
         }
-      } else if (product) {
-        await reserveStock(product.name, defaultWarehouse.id, item.quantity.toString(), tx);
       }
     }
 
@@ -167,10 +168,10 @@ export async function cancelOrder(orderId: string, userId: string) {
             if (product?.isBundle && product.bundleItems.length > 0) {
               for (const bi of product.bundleItems) {
                 const componentQty = new Decimal(bi.quantity.toString()).mul(unreservedQty);
-                await releaseReservation(bi.product.name, defaultWarehouse.id, componentQty.toFixed(3), tx);
+                await tryReleaseReservation(bi.product.name, defaultWarehouse.id, componentQty.toFixed(3), tx);
               }
             } else if (product) {
-              await releaseReservation(product.name, defaultWarehouse.id, unreservedQty.toFixed(3), tx);
+              await tryReleaseReservation(product.name, defaultWarehouse.id, unreservedQty.toFixed(3), tx);
             }
           }
         }

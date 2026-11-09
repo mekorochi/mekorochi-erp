@@ -177,6 +177,47 @@ export async function reserveStock(
   });
 }
 
+export async function tryReserveStock(
+  itemName: string,
+  warehouseId: string,
+  quantity: number | string,
+  tx?: Prisma.TransactionClient
+) {
+  const db = tx || prisma;
+  const stockItem = await db.stockItem.findUnique({
+    where: { itemName_warehouseId: { itemName, warehouseId } },
+  });
+  if (!stockItem) return;
+
+  const qty = new Decimal(quantity);
+  const available = new Decimal(stockItem.quantity.toString()).minus(new Decimal(stockItem.reservedQty.toString()));
+  if (available.lt(qty)) return;
+
+  await db.stockItem.update({
+    where: { itemName_warehouseId: { itemName, warehouseId } },
+    data: { reservedQty: { increment: parseFloat(qty.toFixed(3)) } },
+  });
+}
+
+export async function tryReleaseReservation(
+  itemName: string,
+  warehouseId: string,
+  quantity: number | string,
+  tx?: Prisma.TransactionClient
+) {
+  const db = tx || prisma;
+  const stockItem = await db.stockItem.findUnique({
+    where: { itemName_warehouseId: { itemName, warehouseId } },
+  });
+  if (!stockItem) return;
+
+  const qty = new Decimal(quantity);
+  await db.stockItem.update({
+    where: { itemName_warehouseId: { itemName, warehouseId } },
+    data: { reservedQty: { decrement: parseFloat(qty.toFixed(3)) } },
+  });
+}
+
 export async function releaseReservation(
   itemName: string,
   warehouseId: string,

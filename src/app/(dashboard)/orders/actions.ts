@@ -4,7 +4,7 @@ import prisma from "@/lib/db/prisma";
 import { requirePermission } from "@/lib/auth";
 import { createAuditEvent } from "@/lib/auth/audit";
 import { createSalesOrder, confirmOrder as confirmOrderSvc, cancelOrder as cancelOrderSvc, updateOrderPaymentStatus } from "@/lib/services/orders";
-import { createStockMovement, generateLotNumber, releaseReservation } from "@/lib/services/inventory";
+import { createStockMovement, tryReleaseReservation } from "@/lib/services/inventory";
 import { getNextSequence } from "@/lib/services/sequence";
 import { OrderStatus, MovementType } from "@prisma/client";
 import Decimal from "decimal.js";
@@ -201,7 +201,6 @@ export async function createFulfillment(data: {
     const fulfillmentNumber = await getNextSequence("fulfillment", "FUL");
 
     const defaultWarehouse = await tx.warehouse.findFirst({ where: { isDefault: true } });
-    if (!defaultWarehouse) throw new Error("No default warehouse configured");
 
     const fulfillment = await tx.fulfillment.create({
       data: {
@@ -222,68 +221,83 @@ export async function createFulfillment(data: {
       },
     });
 
-    for (const item of data.items) {
-      const product = await tx.product.findUnique({
-        where: { id: item.productId },
-        include: {
-          bundleItems: { include: { product: true } },
-        },
-      });
+    if (defaultWarehouse) {
+      for (const item of data.items) {
+        const product = await tx.product.findUnique({
+          where: { id: item.productId },
+          include: {
+            bundleItems: { include: { product: true } },
+          },
+        });
 
-      if (product?.isBundle && product.bundleItems.length > 0) {
-        for (const bi of product.bundleItems) {
-          const compQty = new Decimal(bi.quantity.toString()).mul(item.quantity).toNumber();
+        const hasStock = async (name: string) => {
+          const si = await tx.stockItem.findUnique({
+            where: { itemName_warehouseId: { itemName: name, warehouseId: defaultWarehouse.id } },
+          });
+          return !!si;
+        };
+
+        if (product?.isBundle && product.bundleItems.length > 0) {
+          for (const bi of product.bundleItems) {
+            if (await hasStock(bi.product.name)) {
+              const compQty = new Decimal(bi.quantity.toString()).mul(item.quantity).toNumber();
+              await createStockMovement({
+                movementType: MovementType.SALE_DISPATCH,
+                itemName: bi.product.name,
+                productId: bi.productId,
+                warehouseId: defaultWarehouse.id,
+                quantity: compQty,
+                referenceType: "SalesOrder",
+                referenceId: data.orderId,
+                createdBy: user.id,
+              }, tx);
+              await tryReleaseReservation(bi.product.name, defaultWarehouse.id, compQty, tx);
+            }
+          }
+        } else if (product && await hasStock(product.name)) {
           await createStockMovement({
             movementType: MovementType.SALE_DISPATCH,
-            itemName: bi.product.name,
-            productId: bi.productId,
+            itemName: product.name,
+            productId: item.productId,
             warehouseId: defaultWarehouse.id,
-            quantity: compQty,
+            quantity: item.quantity,
+            lotId: item.lotId,
             referenceType: "SalesOrder",
             referenceId: data.orderId,
             createdBy: user.id,
           }, tx);
-          await releaseReservation(bi.product.name, defaultWarehouse.id, compQty, tx);
+          await tryReleaseReservation(product.name, defaultWarehouse.id, item.quantity, tx);
         }
-      } else {
-        await createStockMovement({
-          movementType: MovementType.SALE_DISPATCH,
-          itemName: product?.name || item.productId,
-          productId: item.productId,
-          warehouseId: defaultWarehouse.id,
-          quantity: item.quantity,
-          lotId: item.lotId,
-          referenceType: "SalesOrder",
-          referenceId: data.orderId,
-          createdBy: user.id,
-        }, tx);
-        await releaseReservation(product?.name || item.productId, defaultWarehouse.id, item.quantity, tx);
-      }
 
-      if (product?.autoConsumeBom && !product.isBundle) {
-        const bom = await tx.bOM.findFirst({
-          where: { productId: item.productId, isActive: true },
-          include: { items: { include: { product: true } } },
-          orderBy: { version: "desc" },
-        });
-        if (bom) {
-          const multiplier = new Decimal(item.quantity).div(new Decimal(bom.batchSize.toString()));
-          for (const bomItem of bom.items) {
-            const consumeQty = new Decimal(bomItem.quantity.toString()).mul(multiplier).toNumber();
-            await createStockMovement({
-              movementType: MovementType.PRODUCTION_CONSUME,
-              itemName: bomItem.product.name,
-              productId: bomItem.productId,
-              warehouseId: defaultWarehouse.id,
-              quantity: consumeQty,
-              referenceType: "SalesOrder",
-              referenceId: data.orderId,
-              createdBy: user.id,
-            }, tx);
+        if (product?.autoConsumeBom && !product.isBundle) {
+          const bom = await tx.bOM.findFirst({
+            where: { productId: item.productId, isActive: true },
+            include: { items: { include: { product: true } } },
+            orderBy: { version: "desc" },
+          });
+          if (bom) {
+            const multiplier = new Decimal(item.quantity).div(new Decimal(bom.batchSize.toString()));
+            for (const bomItem of bom.items) {
+              if (await hasStock(bomItem.product.name)) {
+                const consumeQty = new Decimal(bomItem.quantity.toString()).mul(multiplier).toNumber();
+                await createStockMovement({
+                  movementType: MovementType.PRODUCTION_CONSUME,
+                  itemName: bomItem.product.name,
+                  productId: bomItem.productId,
+                  warehouseId: defaultWarehouse.id,
+                  quantity: consumeQty,
+                  referenceType: "SalesOrder",
+                  referenceId: data.orderId,
+                  createdBy: user.id,
+                }, tx);
+              }
+            }
           }
         }
       }
+    }
 
+    for (const item of data.items) {
       await tx.orderItem.updateMany({
         where: { orderId: data.orderId, productId: item.productId },
         data: { fulfilledQty: { increment: item.quantity } },
