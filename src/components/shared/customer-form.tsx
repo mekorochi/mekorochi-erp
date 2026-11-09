@@ -55,39 +55,44 @@ export function CustomerForm({ customer }: CustomerFormProps) {
     setLoading(true);
     setError(null);
 
-    const formData = new FormData(e.currentTarget);
-    const data: Record<string, unknown> = {
-      name: formData.get("name"),
-      company: formData.get("company") || undefined,
-      type: formData.get("type"),
-      email: formData.get("email") || undefined,
-      phone: formData.get("phone") || undefined,
-      gstin: formData.get("gstin") || undefined,
-      pan: formData.get("pan") || undefined,
-      channel: formData.get("channel") || undefined,
-      segment: formData.get("segment") || undefined,
-      creditLimit: formData.get("creditLimit") ? Number(formData.get("creditLimit")) : undefined,
-      creditDays: formData.get("creditDays") ? Number(formData.get("creditDays")) : 0,
-      notes: formData.get("notes") || undefined,
-      billingAddress: {
-        addressLine1: formData.get("addressLine1") || undefined,
-        addressLine2: formData.get("addressLine2") || undefined,
-        city: formData.get("city") || undefined,
-        state: formData.get("state") || undefined,
-        pincode: formData.get("pincode") || undefined,
-      },
-    };
+    try {
+      const formData = new FormData(e.currentTarget);
+      const data: Record<string, unknown> = {
+        name: formData.get("name"),
+        company: formData.get("company") || undefined,
+        type: formData.get("type"),
+        email: formData.get("email") || undefined,
+        phone: formData.get("phone") || undefined,
+        gstin: formData.get("gstin") || undefined,
+        pan: formData.get("pan") || undefined,
+        channel: formData.get("channel") || undefined,
+        segment: formData.get("segment") || undefined,
+        creditLimit: formData.get("creditLimit") ? Number(formData.get("creditLimit")) : undefined,
+        creditDays: formData.get("creditDays") ? Number(formData.get("creditDays")) : 0,
+        notes: formData.get("notes") || undefined,
+        billingAddress: {
+          addressLine1: formData.get("addressLine1") || undefined,
+          addressLine2: formData.get("addressLine2") || undefined,
+          city: formData.get("city") || undefined,
+          state: formData.get("state") || undefined,
+          pincode: formData.get("pincode") || undefined,
+        },
+      };
 
-    const result = customer
-      ? await updateCustomer(customer.id, data)
-      : await createCustomer(data);
+      const result = customer
+        ? await updateCustomer(customer.id, data)
+        : await createCustomer(data);
 
-    if (result.error) {
-      setError(result.error);
+      if (result.error) {
+        setError(result.error);
+      } else {
+        router.push("/customers");
+        router.refresh();
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+    } finally {
       setLoading(false);
-    } else {
-      router.push("/customers");
-      router.refresh();
     }
   }
 
